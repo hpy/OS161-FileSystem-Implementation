@@ -90,4 +90,13 @@
 #define curproc (curthread->t_proc)
 
 
+/*
+ * Definition of current threads process fdt.
+ *
+ * curfdt is always the current thread's process.
+ */
+#define curfdt (curproc->fdt)
+
+
+
 #endif /* _CURRENT_H_ */

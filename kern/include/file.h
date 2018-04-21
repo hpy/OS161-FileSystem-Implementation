@@ -12,6 +12,24 @@
 
 
 /*
+    file related data structures
+*/
+
+struct fdt {
+	int count; 		    /* Number of fdt entries */
+	struct oft_entry *fdt_entry[OPEN_MAX];
+};
+
+struct oft_entry {
+	int uio;                   /* file in/out */
+	struct vnode *vn;             /*if they share a common vnode then lock spinlock when writing*/
+	mode_t mode;       /* if mode is read then only read actions, can access this fd */
+    int flags;
+    off_t seek_pos;     /* position in file (for lseek) */
+};
+
+
+/*
     On success, open returns a nonnegative file handle. On error, -1 is returned,
     and errno is set according to the error encountered.
 */
