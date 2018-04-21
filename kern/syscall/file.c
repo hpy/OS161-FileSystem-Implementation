@@ -26,7 +26,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     (void)flags;
     (void)mode;
     (void)retval;
-    kprintf("Not Implemented at this time");
+    kprintf("sys_open: Not Implemented at this time\n");
     return -1;
 }
 
@@ -35,7 +35,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 */
 int sys_close(int fd){
     (void)fd;
-    kprintf("Not Implemented at this time");
+    kprintf("sys_close: Not Implemented at this time\n");
     return -1;
 }
 
@@ -47,7 +47,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     (void)buf;
     (void)nbytes;
     (void)retval;
-    kprintf("Not Implemented at this time");
+    kprintf("sys_write: Not Implemented at this time\n");
     return -1;
 }
 
@@ -59,7 +59,7 @@ int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     (void)buf;
     (void)nbytes;
     (void)retval;
-    kprintf("Not Implemented at this time");
+    kprintf("sys_read: Not Implemented at this time\n");
     return -1;
 }
 
@@ -70,7 +70,7 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     (void)oldfd;
     (void)newfd;
     (void)retval;
-    kprintf("Not Implemented at this time");
+    kprintf("sys_dup2: Not Implemented at this time\n");
     return -1;
 }
 
@@ -82,7 +82,7 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval){
     (void)pos;
     (void)whence;
     (void)retval;
-    kprintf("Not Implemented at this time");
+    kprintf("sys_lseek: Not Implemented at this time\n");
     return -1;
 }
 
@@ -90,6 +90,6 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval){
     pid_t fork(void)
 */
 // pid_t fork(void){
-//     kprintf("Not Implemented at this time");
+//     kprintf("Not Implemented at this time\n");
 //     return -1;
 // }
