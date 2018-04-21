@@ -34,6 +34,8 @@
 #include <cdefs.h> /* for __DEAD */
 struct trapframe; /* from <machine/trapframe.h> */
 
+#include <file.h> /* include file related syscalls - added by keiran to make syscall.c work */
+
 /*
  * The system call dispatcher.
  */
@@ -58,5 +60,6 @@ __DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
 
 int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
+
 
 #endif /* _SYSCALL_H_ */
