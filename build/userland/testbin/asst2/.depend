@@ -22,4 +22,6 @@ $(MYBUILDDIR)/asst2.o: \
  $(INSTALLTOP)/include/stdlib.h \
  $(INSTALLTOP)/include/err.h \
  $(INSTALLTOP)/include/errno.h \
- $(INSTALLTOP)/include/kern/errno.h
+ $(INSTALLTOP)/include/kern/errno.h \
+ $(INSTALLTOP)/include/limits.h \
+ $(INSTALLTOP)/include/kern/limits.h

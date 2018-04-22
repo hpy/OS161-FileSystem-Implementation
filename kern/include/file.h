@@ -20,11 +20,18 @@ struct fdt {
 	struct oft_entry *fdt_entry[OPEN_MAX];
 };
 
+/*
+    The optional mode argument provides the file permissions to use and
+    is only meaningful in Unix, or if you choose to implement Unix-style
+    security later on. it can be ignored in OS/161.
+*/
+
+
 struct oft_entry {
 	int uio;                   /* file in/out */
-	struct vnode *vn;             /*if they share a common vnode then lock spinlock when writing*/
-	mode_t mode;       /* if mode is read then only read actions, can access this fd */
-    int flags;
+	struct vnode *vn;  /*if they share a common vnode then lock spinlock when writing*/
+	mode_t mode;       /* not used by os161 */
+    int flags;               /* if mode is read then only read actions, can access this fd */
     off_t seek_pos;     /* position in file (for lseek) */
 };
 

@@ -19,13 +19,23 @@
 
 //TEMP here
 static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
-// static int curfdt_destroy(int fd);
+static int curfdt_destroy(int fd);
 
 /*
     int sys_open(const char *filename, int flags, mode_t mode, int *retval)
+
+    IMPORANT NOTE:
+    open returns a file handle suitable for passing to read, write, close, etc.
+    This file handle must be greater than or equal to zero.
+    Note that file handles 0 (STDIN_FILENO), 1 (STDOUT_FILENO),
+    and 2 (STDERR_FILENO) are used in special ways and are typically
+    assumed by user-level code to always be open.
+
+    TODO check all the error codes are teh correct ones to return
 */
+
 int sys_open(const char *filename, int flags, mode_t mode, int *retval){
-    kprintf("Opening: %s\n",filename);
+    kprintf("Opening: %s\n",filename); //temp
     if(filename==NULL){
         return EFAULT;
     }
@@ -40,23 +50,26 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return EMFILE;
     }
 
-    //NOTE: does vfs_open check only valid modes entered?
+    //NOTE: does vfs_open check only valid modes entered? What if i send invalid modes?
 
+    //retrieve our vnode
     struct vnode *vn;
     int result = vfs_open ((char *)filename, flags, mode, &vn);
     if(result){
         return result;
     }
-    //acquire the fd
+
+    //create our fd object and get our fd number
     result = curfdt_acquire(vn, flags, mode, retval);
     //lock_release(open_mutex);
-    kprintf("SUCCESSFULLY OPENED!\n");
+    kprintf("SUCCESSFULLY OPENED! FD: %d\n",*retval); //temp
     return result;
 }
 
 
 
 static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
+    //check we can acquire fd
     if (curfdt->count == __OPEN_MAX){
         return EMFILE;
     }
@@ -74,6 +87,7 @@ static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval)
     entry->uio = 0;
     entry->seek_pos = 0;
 
+    //find first available fd entry
     for(int i = 0; i<__OPEN_MAX; i++){
         if(curfdt->fdt_entry[i]==NULL){
             curfdt->fdt_entry[i] = entry;
@@ -88,20 +102,20 @@ static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval)
 }
 
 //not sure if this is enough...
-// static int curfdt_destroy(int fd){
-//     if(curfdt==NULL){
-//         return EMFILE;
-//     }
-//     if (curfdt->count <= 0){
-//         return EMFILE;
-//     }
-//     if (curfdt->fdt_entry[fd]){
-//         return EMFILE;
-//     }
-//     kfree(curfdt->fdt_entry[fd]);
-//     curfdt->count--;
-//     return 0;
-// }
+static int curfdt_destroy(int fd){
+    if(curfdt==NULL){
+        return EMFILE;
+    }
+    if (curfdt->count <= 0){
+        return EMFILE;
+    }
+    if (curfdt->fdt_entry[fd]){
+        return EMFILE;
+    }
+    kfree(curfdt->fdt_entry[fd]);
+    curfdt->count--;
+    return 0;
+}
 
 
 /*
@@ -109,7 +123,11 @@ static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval)
 */
 int sys_close(int fd){
     (void)fd;
-    kprintf("sys_close: Not Implemented at this time\n");
+    kprintf("sys_close: WIP: Closing %d\n",fd); //temp
+
+    //super crude version
+    curfdt_destroy(fd);
+
     return -1;
 }
 
