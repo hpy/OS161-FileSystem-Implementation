@@ -27,9 +27,11 @@ int test_openclose(void){
     printf(" Testing Open Syscall\t\t\t\t");
     PRINT_LINE
 
-    int fd;
+
+    //start at fd 3 as 0,1,2 already assigned
     //test opening to max + 1 files (to check last one fails)
-    for(int i = 0; i<OPEN_MAX + 2; i++){
+    int fd;
+    for(int i = 3; i<=OPEN_MAX; i++){
         fd = open("test.file", O_RDWR | O_CREAT );
         //only test 32 should fail!
         if(i<OPEN_MAX){
@@ -50,8 +52,8 @@ int test_openclose(void){
 
     printf(" Testing Close Syscall\t\t\t\t");
     //test closing all of the fd is successful
-    for(int i = 0; i<OPEN_MAX; i++){
-        if(close(i)!=0){
+    for(int i = 3; i<OPEN_MAX; i++){
+        if(close(i)){
             printf("Error Closing: %d with Error: %d\n", i, errno);
             exit(1);
         }
@@ -65,21 +67,21 @@ int test_openclose(void){
     PRINT_SUCCESS
 
 
-    //test open 3, close 1st, open new one should be in pos of first
+    //test open 3, close 2nd, open new one should be in pos of second
     printf(" Testing OpenClose Syscalls\t\t\t");
 
-    int fd1 = open("test.file", O_RDWR | O_CREAT );
-    if (fd1!=0) {
+    int fd1 = open("openclose1", O_RDWR | O_CREAT );
+    if (fd1!=3) {
             printf("Error Opening File for Test Number: %d with Error: %d\n", fd1, errno);
             exit(1);
     }
-    int fd2 = open("test.file", O_RDWR | O_CREAT );
-    if (fd2!=1) {
+    int fd2 = open("openclose2", O_RDWR | O_CREAT );
+    if (fd2!=4) {
             printf("Error Opening File for Test Number: %d with Error: %d\n",fd2, errno);
             exit(1);
     }
-    int fd3 = open("test.file", O_RDWR | O_CREAT );
-    if (fd3!=2) {
+    int fd3 = open("openclose3", O_RDWR | O_CREAT );
+    if (fd3!=5) {
             printf("Error Opening File for Test Number: %d with Error: %d\n", fd3, errno);
             exit(1);
     }
@@ -89,19 +91,19 @@ int test_openclose(void){
         exit(1);
     }
 
-    fd2 = open("test.file", O_RDWR | O_CREAT );
-    if (fd2!=1) {
+    fd2 = open("openclose2", O_RDWR | O_CREAT );
+    if (fd2!=4) {
             printf("Error Opening File for Test Number: %d with Error: %d\n",fd2, errno);
             exit(1);
     }
 
-    int fd4 = open("test.file", O_RDWR | O_CREAT );
-    if (fd4!=3) {
+    int fd4 = open("openclose4", O_RDWR | O_CREAT );
+    if (fd4!=6) {
             printf("Error Opening File for Test Number: %d with Error: %d\n",fd4, errno);
             exit(1);
     }
 
-    for(int i = 3; i>=0; i--){
+    for(int i = 6; i>2; i--){
         if(close(i)!=0){
             printf("Error Closing: %d with Error: %d\n", i, errno);
             exit(1);
@@ -110,6 +112,8 @@ int test_openclose(void){
 
     //TODO -> make more tests to test opening files with different flags
 
+
+    //do we need tests testing closing stdin/stdout?
     return 0;
 
 }

@@ -44,6 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
+#include <file.h>
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -97,6 +98,31 @@ runprogram(char *progname)
 		return result;
 	}
 
+	/* assign stdin */
+	int retval = 0;
+	char stdin[] = "con:";
+	result = sys_open(stdin, O_WRONLY, 0, &retval);
+	if (result) {
+		return result;
+	}
+
+	/* assign stdout */
+	char stdout[] = "con:";
+	result = sys_open(stdout, O_WRONLY, 0, &retval);
+	if (result) {
+		sys_close(0);
+		return result;
+	}
+
+	/* assign stderr */
+	char stderr[] = "con:";
+	result = sys_open(stderr, O_WRONLY, 0, &retval);
+	if (result) {
+		sys_close(0);
+		sys_close(1);
+		return result;
+	}
+
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
@@ -104,6 +130,11 @@ runprogram(char *progname)
 
 	/* enter_new_process does not return. */
 	panic("enter_new_process returned\n");
+
+	/* close stdin/stdout/stderr fd */
+	sys_close(0);
+	sys_close(1);
+	sys_close(2);
+
 	return EINVAL;
 }
-

@@ -89,7 +89,6 @@ proc_create(const char *name)
 		return NULL;
 	}
 	proc->fdt->count = 0;
-
 	return proc;
 }
 

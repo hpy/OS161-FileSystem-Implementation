@@ -17,7 +17,6 @@
 #include <proc.h>
 
 
-//TEMP here
 static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
 static int curfdt_destroy(int fd);
 
@@ -47,6 +46,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
     if (curfdt->count == __OPEN_MAX){
         //lock_release(open_mutex);
+        kprintf("TRYING! FD: %d\n",*retval); //temp
         return EMFILE;
     }
 
@@ -61,6 +61,10 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
     //create our fd object and get our fd number
     result = curfdt_acquire(vn, flags, mode, retval);
+    if(result){
+        vfs_close(vn);
+        return result;
+    }
     //lock_release(open_mutex);
     kprintf("SUCCESSFULLY OPENED! FD: %d\n",*retval); //temp
     return result;
@@ -69,7 +73,11 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
 
 static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
-    //check we can acquire fd
+    if(curfdt==NULL){
+        return EMFILE;
+    }
+
+    //check fdt table is not full
     if (curfdt->count == __OPEN_MAX){
         return EMFILE;
     }
@@ -77,7 +85,6 @@ static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval)
     //allocate file descriptor entry
     struct oft_entry *entry =  kmalloc(sizeof(struct oft_entry));
     if(entry==NULL){
-        vfs_close(vn);
         return ENOMEM;
     }
 
@@ -109,7 +116,10 @@ static int curfdt_destroy(int fd){
     if (curfdt->count <= 0){
         return EMFILE;
     }
-    if (curfdt->fdt_entry[fd]){
+    if(fd >= __OPEN_MAX || fd < 0){
+        return EMFILE;
+    }
+    if (curfdt->fdt_entry[fd]==NULL){
         return EMFILE;
     }
     kfree(curfdt->fdt_entry[fd]);
@@ -122,13 +132,15 @@ static int curfdt_destroy(int fd){
     int sys_close(int fd)
 */
 int sys_close(int fd){
-    (void)fd;
+    if(fd >= __OPEN_MAX || fd < 0){
+        return EMFILE;
+    }
     kprintf("sys_close: WIP: Closing %d\n",fd); //temp
 
     //super crude version
-    curfdt_destroy(fd);
+    int result = curfdt_destroy(fd);
 
-    return -1;
+    return 0; //what should sysclose return here?
 }
 
 /*
