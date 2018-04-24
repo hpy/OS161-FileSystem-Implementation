@@ -36,6 +36,10 @@ struct oft_entry {
 };
 
 
+
+int alloc_fdt(char *filename, int flags, mode_t mode, int *retval);
+
+
 /*
     On success, open returns a nonnegative file handle. On error, -1 is returned,
     and errno is set according to the error encountered.

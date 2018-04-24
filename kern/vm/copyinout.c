@@ -267,12 +267,10 @@ copyinstr(const_userptr_t usersrc, char *dest, size_t len, size_t *actual)
 {
 	int result;
 	size_t stoplen;
-
 	result = copycheck(usersrc, len, &stoplen);
 	if (result) {
 		return result;
 	}
-
 	curthread->t_machdep.tm_badfaultfunc = copyfail;
 
 	result = setjmp(curthread->t_machdep.tm_copyjmp);
@@ -280,9 +278,7 @@ copyinstr(const_userptr_t usersrc, char *dest, size_t len, size_t *actual)
 		curthread->t_machdep.tm_badfaultfunc = NULL;
 		return EFAULT;
 	}
-
 	result = copystr(dest, (const char *)usersrc, len, stoplen, actual);
-
 	curthread->t_machdep.tm_badfaultfunc = NULL;
 	return result;
 }

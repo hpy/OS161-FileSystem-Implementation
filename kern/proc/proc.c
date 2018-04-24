@@ -83,12 +83,12 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 	/* FDT fields */
-	proc->fdt = kmalloc(sizeof(struct fdt));
-	if (proc->fdt== NULL) {
+	proc->p_fdt = kmalloc(sizeof(struct fdt));
+	if (proc->p_fdt== NULL) {
 		kfree(proc);
 		return NULL;
 	}
-	proc->fdt->count = 0;
+	proc->p_fdt->count = 0;
 	return proc;
 }
 
@@ -125,16 +125,16 @@ proc_destroy(struct proc *proc)
 	}
 
 	/* FDT fields */
-	if (proc->fdt) {
+	if (proc->p_fdt) {
 		for(int i = 0; i<OPEN_MAX; i++){
-			if(proc->fdt->fdt_entry[i]!=NULL){
-				kfree(proc->fdt->fdt_entry[i]);
-				proc->fdt->fdt_entry[i] = NULL;
-				proc->fdt->count--;
+			if(proc->p_fdt->fdt_entry[i]!=NULL){
+				kfree(proc->p_fdt->fdt_entry[i]);
+				proc->p_fdt->fdt_entry[i] = NULL;
+				proc->p_fdt->count--;
 			}
 		}
-		kfree(proc->fdt);
-		proc->fdt = NULL;
+		kfree(proc->p_fdt);
+		proc->p_fdt = NULL;
 	}
 
 	/* VM fields */

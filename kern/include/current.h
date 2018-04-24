@@ -93,9 +93,9 @@
 /*
  * Definition of current threads process fdt.
  *
- * curfdt is always the current thread's process.
+ * curfdt is always the current threads process fdt.
  */
-#define curfdt (curproc->fdt)
+#define curfdt (curproc->p_fdt)
 
 
 

@@ -15,6 +15,7 @@
 #include <syscall.h>
 #include <copyinout.h>
 #include <proc.h>
+#include <vm.h>
 
 
 static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
@@ -38,23 +39,52 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     if(filename==NULL){
         return EFAULT;
     }
-    //lock_acquire(open_mutex);
 
-    if(curproc->fdt==NULL){
+    if(curfdt==NULL){
         return EMFILE;
     }
 
     if (curfdt->count == OPEN_MAX){
-        //lock_release(open_mutex);
-        kprintf("TRYING! FD: %d\n",*retval); //temp
         return EMFILE;
     }
 
-    //NOTE: does vfs_open check only valid modes entered? What if i send invalid modes?
+    //make a kernel copy of the filepath (safely check it is null terminated)
+    char *file = NULL;
+    int result;
+    size_t got_len = 0;
+    result = copyinstr((const_userptr_t)filename, file, PATH_MAX, &got_len);
+    if(result){
+        kprintf("ERROR copying instruction failed: %d\n",result);
+        kfree(file);
+        return result;
+    }
 
+    result = alloc_fdt(file, flags, mode, retval);
+
+    //free the filename
+    kfree(file);
+
+    kprintf("SUCCESSFULLY OPENED! FD: %d\n",*retval); //temp
+    return result;
+}
+
+
+
+int alloc_fdt(char *filename, int flags, mode_t mode, int *retval){
+    if(filename==NULL){
+        return EFAULT;
+    }
+
+    if(curfdt==NULL){
+        return EMFILE;
+    }
+
+    if (curfdt->count == OPEN_MAX){
+        return EMFILE;
+    }
     //retrieve our vnode
     struct vnode *vn;
-    int result = vfs_open ((char *)filename, flags, mode, &vn);
+    int result = vfs_open (filename, flags, mode, &vn);
     if(result){
         return result;
     }
@@ -65,8 +95,6 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         vfs_close(vn);
         return result;
     }
-    //lock_release(open_mutex);
-    kprintf("SUCCESSFULLY OPENED! FD: %d\n",*retval); //temp
     return result;
 }
 
@@ -184,6 +212,39 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval){
     (void)whence;
     (void)retval;
     kprintf("sys_lseek: Not Implemented at this time\n");
+    //
+    //
+    // if(curfdt==NULL){
+    //     return EMFILE;
+    // }
+    // if (curfdt->count <= 0){
+    //     return EMFILE;
+    // }
+    // if(fd >= OPEN_MAX || fd < 0){
+    //     return EMFILE;
+    // }
+    //
+    // struct *oft_entry entry = curfdt->fdt_entry[fd];
+    //
+    // if (entry==NULL){
+    //     return EMFILE;
+    // }
+    //
+    // if(entry->vn == NULL){
+    //     return EMFILE;
+    // }
+    //
+    // if(!vop_isseekable(entry->vn)){
+    //     return EMFILE;
+    // }
+    //
+    //
+    // vop_stat        - Return info about a file. The pointer is a
+    // *                      pointer to struct stat; see kern/stat.h.
+    // it holds info like file size which i might need to stop seeking off end of file?
+    // but seek normally lets you seek off end, so that you can put in white space in a file
+    // and then start writing again
+
     return -1;
 }
 

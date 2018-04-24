@@ -72,7 +72,7 @@ struct proc {
 	struct vnode *p_cwd;				   /* current working directory */
 
 	/* FDT */
-	struct fdt *fdt; 						      /* array of pointers to file descriptor structs */
+	struct fdt *p_fdt; 						      /* array of pointers to file descriptor structs */
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */

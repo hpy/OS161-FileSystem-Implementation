@@ -101,14 +101,14 @@ runprogram(char *progname)
 	/* assign stdin */
 	int retval = 0;
 	char stdin[] = "con:";
-	result = sys_open(stdin, O_WRONLY, 0, &retval);
+	result = alloc_fdt(stdin, O_WRONLY, 0, &retval);
 	if (result) {
 		return result;
 	}
 
 	/* assign stdout */
 	char stdout[] = "con:";
-	result = sys_open(stdout, O_WRONLY, 0, &retval);
+	result = alloc_fdt(stdout, O_WRONLY, 0, &retval);
 	if (result) {
 		sys_close(0);
 		return result;
@@ -116,7 +116,7 @@ runprogram(char *progname)
 
 	/* assign stderr */
 	char stderr[] = "con:";
-	result = sys_open(stderr, O_WRONLY, 0, &retval);
+	result = alloc_fdt(stderr, O_WRONLY, 0, &retval);
 	if (result) {
 		sys_close(0);
 		sys_close(1);
