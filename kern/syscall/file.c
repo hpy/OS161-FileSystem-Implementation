@@ -44,7 +44,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return EMFILE;
     }
 
-    if (curfdt->count == __OPEN_MAX){
+    if (curfdt->count == OPEN_MAX){
         //lock_release(open_mutex);
         kprintf("TRYING! FD: %d\n",*retval); //temp
         return EMFILE;
@@ -78,7 +78,7 @@ static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval)
     }
 
     //check fdt table is not full
-    if (curfdt->count == __OPEN_MAX){
+    if (curfdt->count == OPEN_MAX){
         return EMFILE;
     }
 
@@ -95,7 +95,7 @@ static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval)
     entry->seek_pos = 0;
 
     //find first available fd entry
-    for(int i = 0; i<__OPEN_MAX; i++){
+    for(int i = 0; i<OPEN_MAX; i++){
         if(curfdt->fdt_entry[i]==NULL){
             curfdt->fdt_entry[i] = entry;
             //set fd value
@@ -116,7 +116,7 @@ static int curfdt_destroy(int fd){
     if (curfdt->count <= 0){
         return EMFILE;
     }
-    if(fd >= __OPEN_MAX || fd < 0){
+    if(fd >= OPEN_MAX || fd < 0){
         return EMFILE;
     }
     if (curfdt->fdt_entry[fd]==NULL){
@@ -132,15 +132,12 @@ static int curfdt_destroy(int fd){
     int sys_close(int fd)
 */
 int sys_close(int fd){
-    if(fd >= __OPEN_MAX || fd < 0){
+    if(fd >= OPEN_MAX || fd < 0){
         return EMFILE;
     }
     kprintf("sys_close: WIP: Closing %d\n",fd); //temp
 
-    //super crude version
-    int result = curfdt_destroy(fd);
-
-    return 0; //what should sysclose return here?
+    return curfdt_destroy(fd); //what should sysclose return here?
 }
 
 /*
