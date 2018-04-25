@@ -73,7 +73,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         }
     }else{
         if(strlen(filename)>PATH_MAX){
-            return EMFILE;
+            return ENAMETOOLONG;
         }
         strcpy(file,filename);
     }
