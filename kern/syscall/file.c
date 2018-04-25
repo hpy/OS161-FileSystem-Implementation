@@ -45,21 +45,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return EFAULT;
     }
 
-    // make a kernel copy of the filepath if it is from userspace
-    char *file = (char *)filename;
-    int result;
-    size_t got_len = 0;
-
-    if ((vaddr_t)filename < USERSPACETOP) {
-        result = copyinstr((const_userptr_t)filename, file, PATH_MAX, &got_len);
-        if(result){
-            kprintf("ERROR copying instruction failed: %d\n",result);
-            kfree(file);
-            return result;
-        }
-    }
     //lock_acquire(open_mutex);
-
     if(curproc->fdt==NULL){
         return EMFILE;
     }
@@ -70,14 +56,36 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return EMFILE;
     }
 
-    //NOTE: does vfs_open check only valid modes entered? What if i send invalid modes?
+    // make a kernel copy of the filepath if it is from userspace
+    int result;
+    size_t got_len = 0;
+
+    char *file = kmalloc(sizeof(char)*PATH_MAX);
+    if(file == NULL){
+        return EMFILE;
+    }
+
+    if ((vaddr_t)filename < USERSPACETOP){
+        result = copyinstr((const_userptr_t)filename, file, PATH_MAX, &got_len);
+        if(result){
+            kprintf("ERROR copying instruction failed: %d\n",result);
+            return result;
+        }
+    }else{
+        if(strlen(filename)>PATH_MAX){
+            return EMFILE;
+        }
+        strcpy(file,filename);
+    }
 
     //retrieve our vnode
     struct vnode *vn;
-    result = vfs_open ((char *)filename, flags, mode, &vn);
+    result = vfs_open (file, flags, mode, &vn);
     if(result){
+        kfree(file);
         return result;
     }
+    kfree(file);
 
     //create our fd object and get our fd number
     result = curfdt_acquire(vn, flags, mode, retval);
