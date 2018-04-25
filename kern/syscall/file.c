@@ -45,30 +45,25 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return EFAULT;
     }
 
-    //lock_acquire(open_mutex);
     if(curproc->fdt==NULL){
+        return EFAULT;
+    }
+
+    if (curfdt->count >= OPEN_MAX){
         return EMFILE;
     }
 
-    if (curfdt->count == OPEN_MAX){
-        //lock_release(open_mutex);
-        kprintf("TRYING! FD: %d\n",*retval); //temp
-        return EMFILE;
-    }
-
-    // make a kernel copy of the filepath if it is from userspace
+    //copy the filename string safely from userspace to kernelspace
     int result;
-    size_t got_len = 0;
-
     char *file = kmalloc(sizeof(char)*PATH_MAX);
     if(file == NULL){
         return EMFILE;
     }
 
     if ((vaddr_t)filename < USERSPACETOP){
+        size_t got_len = 0;
         result = copyinstr((const_userptr_t)filename, file, PATH_MAX, &got_len);
         if(result){
-            kprintf("ERROR copying instruction failed: %d\n",result);
             return result;
         }
     }else{
@@ -93,7 +88,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         vfs_close(vn);
         return result;
     }
-    //lock_release(open_mutex);
+
     kprintf("SUCCESSFULLY OPENED! FD: %d\n",*retval); //temp
     return result;
 }
