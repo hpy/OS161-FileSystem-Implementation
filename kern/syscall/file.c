@@ -158,11 +158,11 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     // EFAULT (part or all of bufs address space is invalid)
     // ENOSPC (there is no free space remaining on the filesystem)
     // EIO (hardware io error occured whilst trying to write)
-
+    /*
     if (INVALID_FD(fd) || INVALID_PERMS(curfdt->fdt_entry[fd]->flags, O_WRONLY)) {
         return EBADF;
     }
-
+    */
 
 }
 
@@ -180,10 +180,11 @@ int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     // EBADF (fd not valid or file doesnt have write perms)
     // EFAULT (part or all of bufs address space is invalid)
     // EIO (hardware io error occured whilst trying to write)
-
+    /*
     if (INVALID_FD(fd) || INVALID_PERMS(curfdt->fdt_entry[fd]->flags, O_RDONLY)) {
         return EBADF;
     }
+    */
 }
 
 /*
