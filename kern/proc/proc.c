@@ -126,7 +126,7 @@ proc_destroy(struct proc *proc)
 
 	/* FDT fields */
 	if (proc->fdt) {
-		for(int i = 0; i<__OPEN_MAX; i++){
+		for(int i = 0; i<OPEN_MAX; i++){
 			if(proc->fdt->fdt_entry[i]!=NULL){
 				kfree(proc->fdt->fdt_entry[i]);
 				proc->fdt->fdt_entry[i] = NULL;
