@@ -17,6 +17,9 @@
 #include <proc.h>
 
 
+#define INVALID_FD(fd) (fd < 0 || fd >= OPEN_MAX)
+#define INVALID_PERMS(flags, perm) (flags & perm)
+
 static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
 static int curfdt_destroy(int fd);
 
@@ -153,6 +156,17 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     (void)retval;
     kprintf("sys_write: Not Implemented at this time\n");
     return -1;
+
+    // EBADF (fd not valid or file doesnt have write perms)
+    // EFAULT (part or all of bufs address space is invalid)
+    // ENOSPC (there is no free space remaining on the filesystem)
+    // EIO (hardware io error occured whilst trying to write)
+
+    if (INVALID_FD(fd) || INVALID_PERMS(curfdt->fdt_entry[fd]->flags, O_WRONLY)) {
+        return EBADF;
+    }
+
+
 }
 
 /*
@@ -165,6 +179,14 @@ int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     (void)retval;
     kprintf("sys_read: Not Implemented at this time\n");
     return -1;
+
+    // EBADF (fd not valid or file doesnt have write perms)
+    // EFAULT (part or all of bufs address space is invalid)
+    // EIO (hardware io error occured whilst trying to write)
+
+    if (INVALID_FD(fd) || INVALID_PERMS(curfdt->fdt_entry[fd]->flags, O_RDONLY)) {
+        return EBADF;
+    }
 }
 
 /*
