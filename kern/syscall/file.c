@@ -96,15 +96,6 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
 
 static int curprocfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
-    if(curprocfdt==NULL){
-        return EMFILE;
-    }
-
-    //check fdt table is not full
-    if (curprocfdt->count == OPEN_MAX){
-        return EMFILE;
-    }
-
     //allocate file descriptor entry
     struct oft_entry *entry =  kmalloc(sizeof(struct oft_entry));
     if(entry==NULL){
@@ -133,15 +124,6 @@ static int curprocfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *ret
 
 //not sure if this is enough...
 static int curprocfdt_destroy(int fd){
-    if(curprocfdt==NULL){
-        return EMFILE;
-    }
-    if (curprocfdt->count <= 0){
-        return EMFILE;
-    }
-    if(fd >= OPEN_MAX || fd < 0){
-        return EMFILE;
-    }
     if (curprocfdt->fdt_entry[fd]==NULL){
         return EMFILE;
     }
@@ -155,11 +137,16 @@ static int curprocfdt_destroy(int fd){
     int sys_close(int fd)
 */
 int sys_close(int fd){
-    if(fd >= OPEN_MAX || fd < 0){
+    if(INVALID_FD(fd)){
+        return EMFILE;
+    }
+    if(curprocfdt==NULL){
+        return EMFILE;
+    }
+    if (curprocfdt->count <= 0){
         return EMFILE;
     }
     kprintf("sys_close: WIP: Closing %d\n",fd); //temp
-
     return curprocfdt_destroy(fd); //what should sysclose return here?
 }
 
