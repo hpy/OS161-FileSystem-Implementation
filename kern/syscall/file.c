@@ -16,6 +16,8 @@
 #include <copyinout.h>
 #include <proc.h>
 
+#include <vm.h>
+
 
 #define INVALID_FD(fd) (fd < 0 || fd >= OPEN_MAX)
 #define INVALID_PERMS(flags, perm) (flags & perm)
@@ -38,8 +40,23 @@ static int curfdt_destroy(int fd);
 
 int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     kprintf("Opening: %s\n",filename); //temp
+
     if(filename==NULL){
         return EFAULT;
+    }
+
+    // make a kernel copy of the filepath if it is from userspace
+    char *file = (char *)filename;
+    int result;
+    size_t got_len = 0;
+
+    if ((vaddr_t)filename < USERSPACETOP) {
+        result = copyinstr((const_userptr_t)filename, file, PATH_MAX, &got_len);
+        if(result){
+            kprintf("ERROR copying instruction failed: %d\n",result);
+            kfree(file);
+            return result;
+        }
     }
     //lock_acquire(open_mutex);
 
@@ -57,7 +74,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
     //retrieve our vnode
     struct vnode *vn;
-    int result = vfs_open ((char *)filename, flags, mode, &vn);
+    result = vfs_open ((char *)filename, flags, mode, &vn);
     if(result){
         return result;
     }
