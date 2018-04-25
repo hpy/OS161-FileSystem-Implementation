@@ -20,7 +20,7 @@
 
 
 #define INVALID_FD(fd) (fd < 0 || fd >= OPEN_MAX)
-#define INVALID_PERMS(flags, perm) ((flags) & perm)
+#define INVALID_PERMS(flags, perm) (!((flags) & perm))
 
 static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
 static int curproc_fdt_destroy(int fd);
@@ -154,11 +154,9 @@ int sys_close(int fd){
 }
 
 /*
-    int sys_write(int fd, void *buf, size_t nbytes, ssize_t *retval)
+    int sys_io(int fd, void *buf, size_t nbytes, ssize_t *retval,  int rw_flag, int uio_rw_flag)
 */
-int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
-
-    //do they have perm on openfile to write
+static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int rw_flag, int uio_rw_flag) {
     if (INVALID_FD(fd)){
         return EBADF;
     }
@@ -171,7 +169,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
         return EBADF;
     }
 
-    if(!INVALID_PERMS(oft->flags, O_WRONLY)) {
+    if(INVALID_PERMS(oft->flags, rw_flag)) {
         return EBADF;
     }
 
@@ -179,41 +177,41 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     struct uio uio;
     int result;
 
-    uio_kinit(&iov, &uio, (void *)buf, nbytes, oft->seek_pos, UIO_WRITE);
+    uio_kinit(&iov, &uio, (void *)buf, nbytes, oft->seek_pos, uio_rw_flag);
 
-    result = VOP_WRITE(oft->vn, &uio);
-    if (result) {
-        return result;
+    if (rw_flag == O_WRONLY) {
+        result = VOP_WRITE(oft->vn, &uio);
+        if (result) {
+            return result;
+        }
+    } else {
+        result = VOP_READ(oft->vn, &uio);
+        if (result) {
+            return result;
+        }
     }
 
     //update the seek position
     oft->seek_pos = uio.uio_offset;
 
     //set number of bytes written
-	*retval = nbytes - uio.uio_resid;
+    *retval = nbytes - uio.uio_resid;
 
     return result;
+}
+
+/*
+    int sys_write(int fd, void *buf, size_t nbytes, ssize_t *retval)
+*/
+int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
+    return sys_io(fd, buf, nbytes, retval, O_WRONLY, UIO_WRITE);
 }
 
 /*
     int sys_read(int fd, void *buf, size_t nbytes, ssize_t *retval)
 */
 int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
-    (void)fd;
-    (void)buf;
-    (void)nbytes;
-    (void)retval;
-    kprintf("sys_read: Not Implemented at this time\n");
-    return -1;
-
-    // EBADF (fd not valid or file doesnt have write perms)
-    // EFAULT (part or all of bufs address space is invalid)
-    // EIO (hardware io error occured whilst trying to write)
-    /*
-    if (INVALID_FD(fd) || INVALID_PERMS(curproc_fdt->fdt_entry[fd]->flags, O_RDONLY)) {
-        return EBADF;
-    }
-    */
+    return sys_io(fd, buf, nbytes, retval, O_RDONLY, UIO_READ);
 }
 
 /*
