@@ -122,13 +122,13 @@ int test_openclose(void){
 int
 main(int argc, char * argv[])
 {
-    // printf("\n\n");
-    // PRINT_LINE
-    // PRINT_LINE
-    // printf("Running Tests!\n");
-    // PRINT_LINE
-    // PRINT_LINE
-    //
+    printf("\n\n");
+    PRINT_LINE
+    PRINT_LINE
+    printf("Running Tests!\n");
+    PRINT_LINE
+    PRINT_LINE
+
 
     //test open file syscall
     test_openclose();
