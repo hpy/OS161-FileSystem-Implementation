@@ -22,8 +22,8 @@
 #define INVALID_FD(fd) (fd < 0 || fd >= OPEN_MAX)
 #define INVALID_PERMS(flags, perm) (flags & perm)
 
-static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
-static int curfdt_destroy(int fd);
+static int curprocfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
+static int curprocfdt_destroy(int fd);
 
 /*
     int sys_open(const char *filename, int flags, mode_t mode, int *retval)
@@ -45,11 +45,11 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return EFAULT;
     }
 
-    if(curproc->fdt==NULL){
+    if(curprocfdt==NULL){
         return EFAULT;
     }
 
-    if (curfdt->count >= OPEN_MAX){
+    if (curprocfdt->count >= OPEN_MAX){
         return EMFILE;
     }
 
@@ -83,7 +83,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     kfree(file);
 
     //create our fd object and get our fd number
-    result = curfdt_acquire(vn, flags, mode, retval);
+    result = curprocfdt_acquire(vn, flags, mode, retval);
     if(result){
         vfs_close(vn);
         return result;
@@ -95,13 +95,13 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
 
 
-static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
-    if(curfdt==NULL){
+static int curprocfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
+    if(curprocfdt==NULL){
         return EMFILE;
     }
 
     //check fdt table is not full
-    if (curfdt->count == OPEN_MAX){
+    if (curprocfdt->count == OPEN_MAX){
         return EMFILE;
     }
 
@@ -119,34 +119,34 @@ static int curfdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval)
 
     //find first available fd entry
     for(int i = 0; i<OPEN_MAX; i++){
-        if(curfdt->fdt_entry[i]==NULL){
-            curfdt->fdt_entry[i] = entry;
+        if(curprocfdt->fdt_entry[i]==NULL){
+            curprocfdt->fdt_entry[i] = entry;
             //set fd value
             *retval = i;
             break;
         }
     }
     //do we need to check again here that oft_entry was assigned a location in the for loop?
-    curfdt->count++;
+    curprocfdt->count++;
     return 0; //change these values to constants
 }
 
 //not sure if this is enough...
-static int curfdt_destroy(int fd){
-    if(curfdt==NULL){
+static int curprocfdt_destroy(int fd){
+    if(curprocfdt==NULL){
         return EMFILE;
     }
-    if (curfdt->count <= 0){
+    if (curprocfdt->count <= 0){
         return EMFILE;
     }
     if(fd >= OPEN_MAX || fd < 0){
         return EMFILE;
     }
-    if (curfdt->fdt_entry[fd]==NULL){
+    if (curprocfdt->fdt_entry[fd]==NULL){
         return EMFILE;
     }
-    kfree(curfdt->fdt_entry[fd]);
-    curfdt->count--;
+    kfree(curprocfdt->fdt_entry[fd]);
+    curprocfdt->count--;
     return 0;
 }
 
@@ -160,7 +160,7 @@ int sys_close(int fd){
     }
     kprintf("sys_close: WIP: Closing %d\n",fd); //temp
 
-    return curfdt_destroy(fd); //what should sysclose return here?
+    return curprocfdt_destroy(fd); //what should sysclose return here?
 }
 
 /*
@@ -179,7 +179,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     // ENOSPC (there is no free space remaining on the filesystem)
     // EIO (hardware io error occured whilst trying to write)
     /*
-    if (INVALID_FD(fd) || INVALID_PERMS(curfdt->fdt_entry[fd]->flags, O_WRONLY)) {
+    if (INVALID_FD(fd) || INVALID_PERMS(curprocfdt->fdt_entry[fd]->flags, O_WRONLY)) {
         return EBADF;
     }
     */
@@ -201,7 +201,7 @@ int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     // EFAULT (part or all of bufs address space is invalid)
     // EIO (hardware io error occured whilst trying to write)
     /*
-    if (INVALID_FD(fd) || INVALID_PERMS(curfdt->fdt_entry[fd]->flags, O_RDONLY)) {
+    if (INVALID_FD(fd) || INVALID_PERMS(curprocfdt->fdt_entry[fd]->flags, O_RDONLY)) {
         return EBADF;
     }
     */
