@@ -98,7 +98,6 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
 static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
     //allocate file descriptor entry
-
     struct oft_entry *entry =  kmalloc(sizeof(struct oft_entry));
     if(entry==NULL){
         return ENOMEM;
@@ -108,6 +107,8 @@ static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *re
     entry->mode = mode;
     entry->flags = flags;
     entry->seek_pos = 0;
+    entry->ref_cnt = 1;
+    entry->oft_lock = lock_create("oft_lock"); //maintains mutual exclusion between child/parent
 
     //find first available fd entry
     for(int i = 0; i<OPEN_MAX; i++){
@@ -126,10 +127,18 @@ static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *re
 
 //not sure if this is enough...
 static int curproc_fdt_destroy(int fd){
-    if (curproc_fdt_entry(fd)==NULL){
+    struct oft_entry *oft_entry = curproc_fdt_entry(fd);
+    if (oft_entry==NULL){
         return EMFILE;
     }
-    kfree(curproc_fdt_entry(fd));
+    //only close fd if no other processes using it (dup2 and fork)
+    if(oft_entry->ref_cnt > 1){
+        oft_entry->ref_cnt--;
+    }else{
+        vfs_close(oft_entry->vn);
+        lock_destroy(oft_entry->oft_lock);
+        kfree(oft_entry);
+    }
     curproc_fdt_entry(fd) = NULL;
     curproc_fdt->count--;
     return 0;
@@ -218,11 +227,41 @@ int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     int sys_dup2(int oldfd, int newfd, int *retval)
 */
 int sys_dup2(int oldfd, int newfd, int *retval){
-    (void)oldfd;
-    (void)newfd;
-    (void)retval;
-    kprintf("sys_dup2: Not Implemented at this time\n");
-    return -1;
+    if(curproc_fdt==NULL){
+        return EBADF;
+    }
+
+    if (INVALID_FD(oldfd) || INVALID_FD(newfd)){
+        return EBADF;
+    }
+
+    struct oft_entry *old_oft = curproc_fdt_entry(oldfd);
+    struct oft_entry *new_oft = curproc_fdt_entry(newfd);
+
+    //check oldfd is valid
+    if(old_oft==NULL){
+        return EBADF;
+    }
+
+    //lock fd
+
+    //if newfd already exists, close newfd, and replace with oldfd
+    if(new_oft!=NULL){
+        //lock newfd
+        int chk = curproc_fdt_destroy(newfd);
+        if(chk){
+            //release the locks
+            return chk;
+        }
+    }
+
+    //point new_oft to the old_oft entry
+    new_oft = old_oft;
+    new_oft->ref_cnt++;
+    *retval = newfd;
+    //release the lock
+
+    return 0;
 }
 
 /*

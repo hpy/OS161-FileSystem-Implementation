@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#define PRINT_LINE printf("***************************************************\n");
+#define PRINT_LINE printf("******************************************************\n");
 #define PRINT_SUCCESS printf("passed\n");
 #define MAX_BUF 500
 char teststr[] = "The quick brown fox jumped over the lazy dog.";
@@ -125,12 +125,10 @@ main(int argc, char * argv[])
     printf("\n\n");
     PRINT_LINE
     PRINT_LINE
-    printf("Running Tests!\n");
+    printf("\t\t-- Running Tests --\n");
     PRINT_LINE
     PRINT_LINE
 
-
-    //test open file syscall
     test_openclose();
 
 
@@ -138,7 +136,7 @@ main(int argc, char * argv[])
 
     PRINT_LINE
     PRINT_LINE
-    printf("All Tests Passed Successfully!\n");
+    printf("\t -- All Tests Passed Successfully --\n");
     PRINT_LINE
     PRINT_LINE
 
