@@ -91,12 +91,19 @@
 
 
 /*
- * Definition of current threads process fdt.
+ * Definition of current threads process fdt list.
  *
- * curprocfdt is always the current thread's process.
+ * curproc_fdt is always the current thread's process.
  */
-#define curprocfdt (curproc->p_fdt)
+#define curproc_fdt (curproc->p_fdt)
 
+
+/*
+ * Definition of current threads process fdt list fdt entry.
+ *
+ * curproc_fdt_entry is always the current thread's process.
+ */
+#define curproc_fdt_entry(fd) (curproc_fdt->fdt_entry[fd])
 
 
 #endif /* _CURRENT_H_ */

@@ -26,13 +26,11 @@ struct fdt {
     security later on. it can be ignored in OS/161.
 */
 
-
 struct oft_entry {
-	int uio;                   /* file in/out */
 	struct vnode *vn;  /*if they share a common vnode then lock spinlock when writing*/
 	mode_t mode;       /* not used by os161 */
     int flags;               /* if mode is read then only read actions, can access this fd */
-    off_t seek_pos;     /* position in file (for lseek) */
+    off_t seek_pos;     /* position in file */
 };
 
 

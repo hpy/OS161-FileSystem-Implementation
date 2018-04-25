@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#define PRINT_LINE printf("*****************************************************************\n");
+#define PRINT_LINE printf("***************************************************\n");
 #define PRINT_SUCCESS printf("passed\n");
 #define MAX_BUF 500
 char teststr[] = "The quick brown fox jumped over the lazy dog.";
@@ -22,11 +22,7 @@ int test_openclose(void);
 
 
 int test_openclose(void){
-
-    PRINT_LINE
     printf(" Testing Open Syscall\t\t\t\t");
-    PRINT_LINE
-
 
     //start at fd 3 as 0,1,2 already assigned
     //test opening to max + 1 files (to check last one fails)
@@ -114,6 +110,9 @@ int test_openclose(void){
 
 
     //do we need tests testing closing stdin/stdout?
+
+    PRINT_SUCCESS
+
     return 0;
 
 }
@@ -123,15 +122,25 @@ int test_openclose(void){
 int
 main(int argc, char * argv[])
 {
-    PRINT_LINE
-    PRINT_LINE
-    printf("Running Tests!\n");
-    PRINT_LINE
-    PRINT_LINE
-
+    // printf("\n\n");
+    // PRINT_LINE
+    // PRINT_LINE
+    // printf("Running Tests!\n");
+    // PRINT_LINE
+    // PRINT_LINE
+    //
 
     //test open file syscall
     test_openclose();
+
+
+
+
+    PRINT_LINE
+    PRINT_LINE
+    printf("All Tests Passed Successfully!\n");
+    PRINT_LINE
+    PRINT_LINE
 
 //         int fd, r, i, j , k;
         (void) argc;
