@@ -243,14 +243,15 @@ int sys_dup2(int oldfd, int newfd, int *retval){
         return EBADF;
     }
 
-    //lock fd
+    lock_acquire(old_oft->oft_lock);
 
     //if newfd already exists, close newfd, and replace with oldfd
     if(new_oft!=NULL){
-        //lock newfd
+        lock_acquire(new_oft->oft_lock);
         int chk = curproc_fdt_destroy(newfd);
         if(chk){
-            //release the locks
+            lock_release(new_oft->oft_lock);
+            lock_release(old_oft->oft_lock);
             return chk;
         }
     }
@@ -259,7 +260,8 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     new_oft = old_oft;
     new_oft->ref_cnt++;
     *retval = newfd;
-    //release the lock
+
+    lock_release(old_oft->oft_lock);
 
     return 0;
 }
