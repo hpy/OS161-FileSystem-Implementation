@@ -52,6 +52,11 @@ vnode_init(struct vnode *vn, const struct vnode_ops *ops,
 	spinlock_init(&vn->vn_countlock);
 	vn->vn_fs = fs;
 	vn->vn_data = fsdata;
+	vn->io_mutex = lock_create("io_mutex");
+	//create lock for io mutual exclusion
+	if(vn->io_mutex==NULL){
+		return ENOMEM;
+	}
 	return 0;
 }
 
@@ -69,6 +74,8 @@ vnode_cleanup(struct vnode *vn)
 	vn->vn_refcount = 0;
 	vn->vn_fs = NULL;
 	vn->vn_data = NULL;
+	lock_destroy(vn->io_mutex);
+	vn->io_mutex = NULL;
 }
 
 
@@ -113,6 +120,7 @@ vnode_decref(struct vnode *vn)
 	spinlock_release(&vn->vn_countlock);
 
 	if (destroy) {
+		lock_destroy(vn->io_mutex);
 		result = VOP_RECLAIM(vn);
 		if (result != 0 && result != EBUSY) {
 			// XXX: lame.

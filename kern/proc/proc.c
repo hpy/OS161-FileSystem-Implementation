@@ -48,6 +48,7 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <synch.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -89,6 +90,13 @@ proc_create(const char *name)
 		return NULL;
 	}
 	proc->p_fdt->count = 0;
+	proc->p_fdt->fdt_mutex = NULL;
+	proc->p_fdt->fdt_mutex = lock_create("fdt_mutex");
+	if(proc->p_fdt->fdt_mutex == NULL){
+		kfree(proc->p_fdt);
+		kfree(proc);
+		return NULL;
+	}
 	return proc;
 }
 
@@ -133,6 +141,7 @@ proc_destroy(struct proc *proc)
 				proc->p_fdt->count--;
 			}
 		}
+		lock_destroy(proc->p_fdt->fdt_mutex);
 		kfree(proc->p_fdt);
 		proc->p_fdt = NULL;
 	}

@@ -108,7 +108,13 @@ static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *re
     entry->flags = flags;
     entry->seek_pos = 0;
     entry->ref_cnt = 1;
-    entry->oft_lock = lock_create("oft_lock"); //maintains mutual exclusion between child/parent
+    entry->oft_mutex = lock_create("oft_mutex"); //maintains mutual exclusion between child/parent
+    if(entry->oft_mutex){
+        kfree(entry);
+        return ENOMEM;
+    }
+    //lock the fdt
+    lock_acquire(curproc_fdt->fdt_mutex);
 
     //find first available fd entry
     for(int i = 0; i<OPEN_MAX; i++){
@@ -122,25 +128,36 @@ static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *re
 
     //do we need to check again here that oft_entry was assigned a location in the for loop?
     curproc_fdt->count++;
+
+    lock_release(curproc_fdt->fdt_mutex);
+
     return 0; //change these values to constants
 }
 
-//not sure if this is enough...
+
+//note caller must hold mutex for the fdt table for their process!
 static int curproc_fdt_destroy(int fd){
     struct oft_entry *oft_entry = curproc_fdt_entry(fd);
     if (oft_entry==NULL){
         return EMFILE;
     }
+
+    lock_acquire(oft_entry->oft_mutex);
+
     //only close fd if no other processes using it (dup2 and fork)
     if(oft_entry->ref_cnt > 1){
         oft_entry->ref_cnt--;
+        curproc_fdt_entry(fd) = NULL;
+        lock_release(oft_entry->oft_mutex);
     }else{
         vfs_close(oft_entry->vn);
-        lock_destroy(oft_entry->oft_lock);
+        lock_destroy(oft_entry->oft_mutex);
         kfree(oft_entry);
+        curproc_fdt_entry(fd) = NULL;
     }
-    curproc_fdt_entry(fd) = NULL;
+
     curproc_fdt->count--;
+
     return 0;
 }
 
@@ -152,20 +169,30 @@ int sys_close(int fd){
     if(INVALID_FD(fd)){
         return EMFILE;
     }
+
     if(curproc_fdt==NULL){
         return EMFILE;
     }
+
+    lock_acquire(curproc_fdt->fdt_mutex);
+
     if (curproc_fdt->count <= 0){
+        lock_release(curproc_fdt->fdt_mutex);
         return EMFILE;
     }
-    //kprintf("sys_close: WIP: Closing %d\n",fd); //temp
-    return curproc_fdt_destroy(fd); //what should sysclose return here?
+
+    int result = curproc_fdt_destroy(fd);
+
+    lock_release(curproc_fdt->fdt_mutex);
+
+    return result;
 }
 
 /*
     int sys_io(int fd, void *buf, size_t nbytes, ssize_t *retval,  int rw_flag, int uio_rw_flag)
 */
 static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int rw_flag, int uio_rw_flag) {
+
     if (INVALID_FD(fd)){
         return EBADF;
     }
@@ -178,7 +205,13 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int r
         return EBADF;
     }
 
+    //should we hold the fdt_mutex to prevent deadlocks elsewhere?
+    lock_acquire(curproc_fdt->fdt_mutex);
+    lock_acquire(oft->oft_mutex);
+
     if(INVALID_PERMS(oft->flags, rw_flag)) {
+        lock_release(oft->oft_mutex);
+        lock_release(curproc_fdt->fdt_mutex);
         return EBADF;
     }
 
@@ -191,11 +224,15 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int r
     if (rw_flag == O_WRONLY) {
         result = VOP_WRITE(oft->vn, &uio);
         if (result) {
+            lock_release(oft->oft_mutex);
+            lock_release(curproc_fdt->fdt_mutex);
             return result;
         }
     } else {
         result = VOP_READ(oft->vn, &uio);
         if (result) {
+            lock_release(oft->oft_mutex);
+            lock_release(curproc_fdt->fdt_mutex);
             return result;
         }
     }
@@ -205,6 +242,9 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int r
 
     //set number of bytes written
     *retval = nbytes - uio.uio_resid;
+
+    lock_release(oft->oft_mutex);
+    lock_release(curproc_fdt->fdt_mutex);
 
     return result;
 }
@@ -242,16 +282,17 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     if(old_oft==NULL){
         return EBADF;
     }
-
-    lock_acquire(old_oft->oft_lock);
+    lock_acquire(curproc_fdt->fdt_mutex);
+    lock_acquire(old_oft->oft_mutex);
 
     //if newfd already exists, close newfd, and replace with oldfd
     if(new_oft!=NULL){
-        lock_acquire(new_oft->oft_lock);
+        lock_acquire(new_oft->oft_mutex);
         int chk = curproc_fdt_destroy(newfd);
         if(chk){
-            lock_release(new_oft->oft_lock);
-            lock_release(old_oft->oft_lock);
+            lock_release(new_oft->oft_mutex);
+            lock_release(old_oft->oft_mutex);
+            lock_release(curproc_fdt->fdt_mutex);
             return chk;
         }
     }
@@ -261,7 +302,8 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     new_oft->ref_cnt++;
     *retval = newfd;
 
-    lock_release(old_oft->oft_lock);
+    lock_release(old_oft->oft_mutex);
+    lock_release(curproc_fdt->fdt_mutex); //must prevent another syscall changing this oft_entry
 
     return 0;
 }
@@ -270,12 +312,59 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
 */
 int sys_lseek(int fd, off_t pos, int whence, int *retval){
-    (void)fd;
-    (void)pos;
-    (void)whence;
     (void)retval;
-    kprintf("sys_lseek: Not Implemented at this time\n");
-    return -1;
+
+    if (INVALID_FD(fd)) {
+        return EBADF;
+    }
+
+    if(curproc_fdt==NULL){
+        return EMFILE;
+    }
+
+    struct oft_entry *oft_entry = curproc_fdt_entry(fd);
+    if (!(VOP_ISSEEKABLE(oft_entry->vn))) {
+        return ESPIPE;
+    }
+
+    if ((whence + pos) < 0) {
+        return EINVAL;
+    }
+
+    //uint64_t offset;
+    //join32to64(tf->tf_a2, tf->tf_a3, &offset);
+    //kprintf("off_t pos combined into uint64 is %lld\n", offset);
+
+    switch (whence) {
+        case SEEK_SET:
+            // do whence + pos
+            break;
+        case SEEK_CUR:
+            // do current position + pos
+            break;
+        case SEEK_END:
+            // do end of file + pos
+            // i.e. use VOP_STAT()
+            break;
+        default:
+            return EINVAL;
+            break;
+    }
+
+    return 0;
+
+    /*
+    uint64_t offset;
+    int whence;
+    off_t retval64;
+
+    join32to64(tf->tf_a2, tf->tf_a3, &offset);
+
+    copyin((userptr_t)tf->tf_sp + 16, &whence, sizeof(int));
+
+    split64to32(retval64, &tf->tf_v0, &tf->tf_v1);
+
+    */
 }
 
 /*

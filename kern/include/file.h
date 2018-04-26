@@ -17,6 +17,7 @@
 
 struct fdt {
 	int count; 		    /* Number of fdt entries */
+	struct lock *fdt_mutex; 		/* maintain exclusion over fdt when modifying */
 	struct oft_entry *fdt_entry[OPEN_MAX];
 };
 
@@ -27,8 +28,8 @@ struct fdt {
 */
 
 struct oft_entry {
-	struct lock *oft_lock; 	/* lock to maintain mutual exclusion between dup and children */
-	struct vnode *vn;  /*lock spinlock when writing*/
+	struct lock *oft_mutex; 	/* lock to maintain mutual exclusion between dup and children */
+	struct vnode *vn;  /*lock when writing or reading*/
 	mode_t mode;       /* not used by os161 */
     int flags;               /* if mode is read then only read actions, can access this fd */
     off_t seek_pos;     /* position in file */

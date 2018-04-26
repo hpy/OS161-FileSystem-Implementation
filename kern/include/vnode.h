@@ -52,6 +52,8 @@ struct vnode {
 	int vn_refcount;                /* Reference count */
 	struct spinlock vn_countlock;   /* Lock for vn_refcount */
 
+	struct lock *io_mutex; 		/* Lock for atomic access to file for read/write */
+
 	struct fs *vn_fs;               /* Filesystem vnode belongs to */
 
 	void *vn_data;                  /* Filesystem-specific data */
