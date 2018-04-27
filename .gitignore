@@ -1,2 +1,2 @@
 *.o
-kern/compile/ASST2
+kern/compile/ASST2/*
