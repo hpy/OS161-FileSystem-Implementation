@@ -109,12 +109,15 @@ static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *re
     entry->seek_pos = 0;
     entry->ref_cnt = 1;
     entry->oft_mutex = lock_create("oft_mutex"); //maintains mutual exclusion between child/parent
-    if(entry->oft_mutex){
+    if(entry->oft_mutex == NULL){
         kfree(entry);
         return ENOMEM;
     }
+
     //lock the fdt
     lock_acquire(curproc_fdt->fdt_mutex);
+
+    *retval = -1;
 
     //find first available fd entry
     for(int i = 0; i<OPEN_MAX; i++){
@@ -125,8 +128,13 @@ static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *re
             break;
         }
     }
+    //if we somehow didnt find an entry return error
+    if(*retval == -1){
+        kfree(entry);
+        lock_release(curproc_fdt->fdt_mutex);
+        return EMFILE;
+    }
 
-    //do we need to check again here that oft_entry was assigned a location in the for loop?
     curproc_fdt->count++;
 
     lock_release(curproc_fdt->fdt_mutex);
@@ -151,6 +159,7 @@ static int curproc_fdt_destroy(int fd){
         lock_release(oft_entry->oft_mutex);
     }else{
         vfs_close(oft_entry->vn);
+        lock_release(oft_entry->oft_mutex);
         lock_destroy(oft_entry->oft_mutex);
         kfree(oft_entry);
         curproc_fdt_entry(fd) = NULL;

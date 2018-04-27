@@ -120,7 +120,6 @@ vnode_decref(struct vnode *vn)
 	spinlock_release(&vn->vn_countlock);
 
 	if (destroy) {
-		lock_destroy(vn->io_mutex);
 		result = VOP_RECLAIM(vn);
 		if (result != 0 && result != EBUSY) {
 			// XXX: lame.

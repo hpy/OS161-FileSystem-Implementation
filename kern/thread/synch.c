@@ -48,12 +48,12 @@ struct semaphore *
 sem_create(const char *name, unsigned initial_count)
 {
 	struct semaphore *sem;
-	
+
 	sem = kmalloc(sizeof(*sem));
 	if (sem == NULL) {
 		return NULL;
 	}
-	
+
 	sem->sem_name = kstrdup(name);
 	if (sem->sem_name == NULL) {
 		kfree(sem);
