@@ -3,4 +3,5 @@ time_syscalls.o: ../../syscall/time_syscalls.c ../../include/types.h \
  includelinks/machine/types.h ../../include/clock.h \
  ../../include/kern/time.h ../../include/copyinout.h \
  ../../include/syscall.h ../../include/cdefs.h ../../include/file.h \
- ../../include/limits.h ../../include/kern/limits.h
+ ../../include/limits.h ../../include/kern/limits.h \
+ includelinks/mips/trapframe.h

@@ -4,6 +4,7 @@
 #include <kern/limits.h>
 #include <kern/stat.h>
 #include <kern/seek.h>
+#include <endian.h>
 #include <lib.h>
 #include <uio.h>
 #include <thread.h>
@@ -15,7 +16,7 @@
 #include <syscall.h>
 #include <copyinout.h>
 #include <proc.h>
-
+#include <mips/trapframe.h>
 #include <vm.h>
 
 
@@ -320,8 +321,12 @@ int sys_dup2(int oldfd, int newfd, int *retval){
 /*
     int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
 */
-int sys_lseek(int fd, off_t pos, int whence, int *retval){
-    (void)retval;
+int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
+
+    off_t retval64;
+    struct stat *fstat = {0};
+    int file_size, result = 0;
+    uint64_t offset;
 
     if (INVALID_FD(fd)) {
         return EBADF;
@@ -331,6 +336,14 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval){
         return EMFILE;
     }
 
+    join32to64(tf->tf_a2, tf->tf_a3, &offset);
+
+    result = copyin((userptr_t)tf->tf_sp + 16, &whence, sizeof(int));
+    if (result) {
+        return result;
+    }
+
+    // NOTE isseekable may return 1 for success
     struct oft_entry *oft_entry = curproc_fdt_entry(fd);
     if (!(VOP_ISSEEKABLE(oft_entry->vn))) {
         return ESPIPE;
@@ -340,42 +353,32 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval){
         return EINVAL;
     }
 
-    //uint64_t offset;
-    //join32to64(tf->tf_a2, tf->tf_a3, &offset);
-    //kprintf("off_t pos combined into uint64 is %lld\n", offset);
-
     switch (whence) {
         case SEEK_SET:
-            // do whence + pos
+            oft_entry->seek_pos = offset;
             break;
         case SEEK_CUR:
-            // do current position + pos
+            oft_entry->seek_pos += offset;
             break;
         case SEEK_END:
-            // do end of file + pos
-            // i.e. use VOP_STAT()
+            result = VOP_STAT(oft_entry->vn, fstat);
+            if (result) {
+                return result;
+            }
+            file_size = fstat->st_size;
+            oft_entry->seek_pos = file_size + offset;
             break;
         default:
             return EINVAL;
             break;
     }
 
-    return 0;
-
-    /*
-    uint64_t offset;
-    int whence;
-    off_t retval64;
-
-    join32to64(tf->tf_a2, tf->tf_a3, &offset);
-
-    copyin((userptr_t)tf->tf_sp + 16, &whence, sizeof(int));
-
+    retval64 = oft_entry->seek_pos;
+    *retval = retval64;
     split64to32(retval64, &tf->tf_v0, &tf->tf_v1);
 
-    */
+    return result;
 }
-
 /*
     pid_t fork(void)
 */

@@ -6,9 +6,9 @@ dumbvm.o: ../../arch/mips/vm/dumbvm.c ../../include/types.h \
  ../../include/hangman.h opt-hangman.h includelinks/machine/spinlock.h \
  ../../include/threadlist.h includelinks/machine/vm.h \
  ../../include/proc.h ../../include/file.h ../../include/limits.h \
- ../../include/kern/limits.h ../../include/current.h \
- includelinks/machine/current.h ../../include/thread.h \
- ../../include/array.h includelinks/machine/thread.h \
- ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
- includelinks/mips/tlb.h ../../include/addrspace.h ../../include/vm.h \
- opt-dumbvm.h
+ ../../include/kern/limits.h includelinks/mips/trapframe.h \
+ ../../include/current.h includelinks/machine/current.h \
+ ../../include/thread.h ../../include/array.h \
+ includelinks/machine/thread.h ../../include/setjmp.h \
+ includelinks/kern/machine/setjmp.h includelinks/mips/tlb.h \
+ ../../include/addrspace.h ../../include/vm.h opt-dumbvm.h

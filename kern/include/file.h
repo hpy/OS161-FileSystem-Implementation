@@ -9,7 +9,7 @@
  * Contains some file-related maximum length constants
  */
 #include <limits.h>
-
+#include <mips/trapframe.h>
 
 /*
     file related data structures
@@ -75,7 +75,7 @@ int sys_dup2(int oldfd, int newfd, int *retval); //returns newfd on success
     On success, lseek returns the new position. On error, -1 is returned,
     and errno is set according to the error encountered.
 */
-int sys_lseek(int fd, off_t pos, int whence, int *retval);
+int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf);
 
 /*
     On success, fork returns twice, once in the parent process and once in the child process.
