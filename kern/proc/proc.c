@@ -60,7 +60,7 @@ int proc_cnt;
 
 static struct fdt *proc_acquirefdt(void);
 static int proc_acquirepid(struct proc *proc);
-static int proc_removepid(struct proc *proc);
+static void proc_removepid(struct proc *proc);
 
 /*
  * Create a proc structure.
