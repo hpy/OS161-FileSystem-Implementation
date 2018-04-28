@@ -49,14 +49,11 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <synch.h>
-#include <limits.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
-int proc_cnt;
-static struct fdt *proc_acquirefdt(void);
 
 /*
  * Create a proc structure.
@@ -66,10 +63,6 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
-
-	if(proc_cnt >= PID_MAX){
-		return NULL; //we have too many processes
-	}
 
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
@@ -91,36 +84,21 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 	/* FDT fields */
-	proc->p_fdt = proc_acquirefdt();
+	proc->p_fdt = kmalloc(sizeof(struct fdt));
 	if (proc->p_fdt== NULL) {
 		kfree(proc);
 		return NULL;
 	}
-	proc_cnt++;
+	proc->p_fdt->count = 0;
+	proc->p_fdt->fdt_mutex = NULL;
+	proc->p_fdt->fdt_mutex = lock_create("fdt_mutex");
+	if(proc->p_fdt->fdt_mutex == NULL){
+		kfree(proc->p_fdt);
+		kfree(proc);
+		return NULL;
+	}
 	return proc;
 }
-
-
-static struct fdt *proc_acquirefdt(void){
-
-	struct fdt * fdt = kmalloc(sizeof(struct fdt));
-	if (fdt== NULL) {
-		kfree(fdt);
-		return NULL;
-	}
-
-	fdt->fdt_mutex = lock_create("fdt_mutex");
-	if(fdt->fdt_mutex == NULL){
-		kfree(fdt);
-		return NULL;
-	}
-
-	fdt->count = 0;
-	fdt->fdt_mutex = NULL;
-
-	return fdt;
-}
-
 
 /*
  * Destroy a proc structure.
@@ -219,12 +197,8 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
-	//relink prev and next
-
-
 	kfree(proc->p_name);
 	kfree(proc);
-	proc_cnt--;
 }
 
 /*
@@ -233,7 +207,6 @@ proc_destroy(struct proc *proc)
 void
 proc_bootstrap(void)
 {
-	proc_cnt = 0;
 	kproc = proc_create("[kernel]");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
