@@ -21,27 +21,46 @@
 
 
 #define INVALID_FD(fd) (fd < 0 || fd >= OPEN_MAX)
-#define INVALID_PERMS(flags, perm) (!((flags) & perm))
+#define INVALID_READ(flags) (!((flags & O_RDONLY) || (flags & O_RDWR) ))
+#define INVALID_WRITE(flags) (!((flags & O_WRONLY) || (flags & O_RDWR) ))
+
+
+static int validflag(int flag, int io_type);
+
+static int validflag(int flag, int io_type){
+    if(io_type==UIO_WRITE){
+        return !(INVALID_WRITE(flag));
+        // switch (flag) {
+        //     case O_WRONLY:
+        //     case O_RDWR: return 0;
+        //     default: return EDOM;
+        // }
+    }
+    if(io_type==UIO_READ){
+        return (!(INVALID_READ(flag)) ||  (flag==O_RDONLY));
+        // switch (flag) {
+        //     case O_RDONLY:
+        //     case O_RDWR: return 0;
+        //     default: return EDOM;
+        // }
+    }
+    return 0;
+}
+
 
 static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
 static int curproc_fdt_destroy(int fd);
+static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int uio_rw_flag);
 
 /*
     int sys_open(const char *filename, int flags, mode_t mode, int *retval)
-
-    IMPORANT NOTE:
-    open returns a file handle suitable for passing to read, write, close, etc.
-    This file handle must be greater than or equal to zero.
-    Note that file handles 0 (STDIN_FILENO), 1 (STDOUT_FILENO),
-    and 2 (STDERR_FILENO) are used in special ways and are typically
-    assumed by user-level code to always be open.
 
     TODO check all the error codes are teh correct ones to return
 */
 
 int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     //kprintf("Opening: %s\n",filename); //temp
-
+    //kprintf("SUCCESSFULLY START! Flag was: %d\n",flags); //temp
     if(filename==NULL){
         return EFAULT;
     }
@@ -53,7 +72,6 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     if (curproc_fdt->count >= OPEN_MAX){
         return EMFILE;
     }
-    //kprintf("%d\n",curproc_fdt->count);
 
     //copy the filename string safely from userspace to kernelspace
     int result;
@@ -91,8 +109,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return result;
     }
 
-    //kprintf("SUCCESSFULLY OPENED! FD: %d\n",*retval); //temp
-    return result;
+    return 0;
 }
 
 
@@ -100,6 +117,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
     //allocate file descriptor entry
     struct oft_entry *entry =  kmalloc(sizeof(struct oft_entry));
+
     if(entry==NULL){
         return ENOMEM;
     }
@@ -117,6 +135,13 @@ static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *re
 
     //lock the fdt
     lock_acquire(curproc_fdt->fdt_mutex);
+
+    if (curproc_fdt->count >= OPEN_MAX){
+        kfree(entry);
+        lock_release(curproc_fdt->fdt_mutex);
+        return EMFILE;
+    }
+
 
     *retval = -1;
 
@@ -146,8 +171,16 @@ static int curproc_fdt_acquire(struct vnode *vn, int flags, mode_t mode, int *re
 
 //note caller must hold mutex for the fdt table for their process!
 static int curproc_fdt_destroy(int fd){
+
     struct oft_entry *oft_entry = curproc_fdt_entry(fd);
     if (oft_entry==NULL){
+        return EMFILE;
+    }
+
+    lock_acquire(curproc_fdt->fdt_mutex);
+
+    if (curproc_fdt->count <= 0){
+        lock_release(curproc_fdt->fdt_mutex);
         return EMFILE;
     }
 
@@ -167,6 +200,7 @@ static int curproc_fdt_destroy(int fd){
     }
 
     curproc_fdt->count--;
+    lock_release(curproc_fdt->fdt_mutex);
 
     return 0;
 }
@@ -179,29 +213,16 @@ int sys_close(int fd){
     if(INVALID_FD(fd)){
         return EMFILE;
     }
-
     if(curproc_fdt==NULL){
         return EMFILE;
     }
-
-    lock_acquire(curproc_fdt->fdt_mutex);
-
-    if (curproc_fdt->count <= 0){
-        lock_release(curproc_fdt->fdt_mutex);
-        return EMFILE;
-    }
-
-    int result = curproc_fdt_destroy(fd);
-
-    lock_release(curproc_fdt->fdt_mutex);
-
-    return result;
+    return curproc_fdt_destroy(fd);
 }
 
 /*
     int sys_io(int fd, void *buf, size_t nbytes, ssize_t *retval,  int rw_flag, int uio_rw_flag)
 */
-static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int rw_flag, int uio_rw_flag) {
+static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int uio_rw_flag) {
 
     if (INVALID_FD(fd)){
         return EBADF;
@@ -216,33 +237,33 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int r
     }
 
     //should we hold the fdt_mutex to prevent deadlocks elsewhere?
-    lock_acquire(curproc_fdt->fdt_mutex);
+    //lock_acquire(curproc_fdt->fdt_mutex);
     lock_acquire(oft->oft_mutex);
-
-    if(INVALID_PERMS(oft->flags, rw_flag)) {
-        lock_release(oft->oft_mutex);
-        lock_release(curproc_fdt->fdt_mutex);
-        return EBADF;
-    }
 
     struct iovec iov;
     struct uio uio;
     int result;
 
+    if(!validflag(oft->flags, uio_rw_flag)) {
+        lock_release(oft->oft_mutex);
+        //lock_release(curproc_fdt->fdt_mutex);
+        return EBADF;
+    }
+
     uio_kinit(&iov, &uio, (void *)buf, nbytes, oft->seek_pos, uio_rw_flag);
 
-    if (rw_flag == O_WRONLY) {
+    if (uio_rw_flag == UIO_WRITE) {
         result = VOP_WRITE(oft->vn, &uio);
         if (result) {
             lock_release(oft->oft_mutex);
-            lock_release(curproc_fdt->fdt_mutex);
+            //lock_release(curproc_fdt->fdt_mutex);
             return result;
         }
     } else {
         result = VOP_READ(oft->vn, &uio);
         if (result) {
             lock_release(oft->oft_mutex);
-            lock_release(curproc_fdt->fdt_mutex);
+            //lock_release(curproc_fdt->fdt_mutex);
             return result;
         }
     }
@@ -254,23 +275,23 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int r
     *retval = nbytes - uio.uio_resid;
 
     lock_release(oft->oft_mutex);
-    lock_release(curproc_fdt->fdt_mutex);
+    //lock_release(curproc_fdt->fdt_mutex);
 
-    return result;
+    return 0;
 }
 
 /*
     int sys_write(int fd, void *buf, size_t nbytes, ssize_t *retval)
 */
 int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
-    return sys_io(fd, buf, nbytes, retval, O_WRONLY, UIO_WRITE);
+    return sys_io(fd, buf, nbytes, retval, UIO_WRITE);
 }
 
 /*
     int sys_read(int fd, void *buf, size_t nbytes, ssize_t *retval)
 */
 int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
-    return sys_io(fd, buf, nbytes, retval, O_RDONLY, UIO_READ);
+    return sys_io(fd, buf, nbytes, retval, UIO_READ);
 }
 
 /*
@@ -288,11 +309,13 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     struct oft_entry *old_oft = curproc_fdt_entry(oldfd);
     struct oft_entry *new_oft = curproc_fdt_entry(newfd);
 
-    //check oldfd is valid
+    lock_acquire(curproc_fdt->fdt_mutex);
+    //check oldfd is valid (grab lock so noone can delete it  before i get lock!)
     if(old_oft==NULL){
+        lock_release(curproc_fdt->fdt_mutex);
         return EBADF;
     }
-    lock_acquire(curproc_fdt->fdt_mutex);
+
     lock_acquire(old_oft->oft_mutex);
 
     //if newfd already exists, close newfd, and replace with oldfd
