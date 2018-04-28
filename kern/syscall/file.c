@@ -32,7 +32,10 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int u
 
 /*
     static int validflag(int flag, int io_type)
-    Check if flags are compatible ie O_RDONLY and O_WRONLY are not compatible
+
+    Check if given flags are valid with io_type
+    Example: O_RDONLY and O_WRONLY are not compatible
+                    O_RDONLY and O_RDWR are compatible
 */
 static int validflag(int flag, int io_type){
     if(io_type==UIO_WRITE){
@@ -41,19 +44,23 @@ static int validflag(int flag, int io_type){
     if(io_type==UIO_READ){
         return (!(INVALID_READ(flag)) ||  (flag==O_RDONLY));
     }
-    return 0;
+    return EINVAL;
 }
 
 
 /*
     int sys_open(const char *filename, int flags, mode_t mode, int *retval)
-    Open a given filename, and return a file descriptor handle
+
+    Opens a given filename, and returns a file handle suitable for passing to read, write, close, etc.
 */
 int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     if(curproc_fdt==NULL){
-        return ESRCH;
+        return EINVAL;
     }
     if(filename==NULL){
+        return EINVAL;
+    }
+    if(retval==NULL){
         return EINVAL;
     }
 
@@ -105,17 +112,16 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
 /*
     static int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval)
-    Allocate oft entry and insert into process fdt table
+
+    Allocate a new oft entry and insert into first available slot in the process fdt table
 */
 static int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
     if(curproc_fdt==NULL){
-        return ESRCH;
+        return EINVAL;
     }
-
     if(vn==NULL){
         return EINVAL;
     }
-
     if(retval==NULL){
         return EINVAL;
     }
@@ -166,11 +172,11 @@ static int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
     int sys_close(int fd)
 
     Closes requested file descriptor. Other file handles are not affected in any way,
-    even if they are attached to the same file.
+    even if they are sharing the same file vnode or oft_entry (ie dup2 and fork).
 */
 int sys_close(int fd){
     if(curproc_fdt==NULL){
-        return ESRCH;
+        return EINVAL;
     }
     if(INVALID_FD(fd)){
         return EBADF;
@@ -217,19 +223,25 @@ int sys_close(int fd){
 /*
     int sys_io(int fd, void *buf, size_t nbytes, ssize_t *retval,  int rw_flag, int uio_rw_flag)
 
-    Read or write to a given file
-    Each write operation is atomic relative to other I/O to the same file.
+    Read or write up to nbytes of a file specified by fd, at the seek position of the file.
+    The file must have been opened with a valid matching read/write operation.
+    Each read/write operation is atomic relative to other I/O to the same file.
 */
 static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int uio_rw_flag) {
     if(curproc_fdt==NULL){
-        return ESRCH;
+        return EINVAL;
+    }
+    if(buf==NULL){
+        return EINVAL;
+    }
+    if(retval==NULL){
+        return EINVAL;
     }
     if(INVALID_FD(fd)){
         return EBADF;
     }
 
     lock_acquire(curproc_fdt->fdt_mutex);
-
     struct oft_entry *oft_entry = curproc_fdt_entry(fd);
     if(oft_entry==NULL){
         lock_release(curproc_fdt->fdt_mutex);
@@ -282,7 +294,11 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int u
 /*
     int sys_write(int fd, void *buf, size_t nbytes, ssize_t *retval)
 
-    Write to the a given file descriptor
+    Write up to nbytes to the file specified by fd, at the location in the file
+    specified by the current seek position of the file, taking the data from
+    the space pointed to by buf. The file must be open for writing.
+    The current seek position of the file is advanced by the number of bytes written.
+    Each write (or read) operation is atomic relative to other I/O to the same file.
 */
 int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     return sys_io(fd, buf, nbytes, retval, UIO_WRITE);
@@ -293,7 +309,11 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
 /*
     int sys_read(int fd, void *buf, size_t nbytes, ssize_t *retval)
 
-    Read from a given file descriptor
+    Reads up to nbytes from the file specified by fd, at the location in the file
+    specified by the current seek position of the file, and stores them in the space pointed to by buf.
+    The file must be open for reading.
+    The current seek position of the file is advanced by the number of bytes read.
+    Each read (or write) operation is atomic relative to other I/O to the same file.
 */
 int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     return sys_io(fd, buf, nbytes, retval, UIO_READ);
@@ -312,7 +332,7 @@ int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
 */
 int sys_dup2(int oldfd, int newfd, int *retval){
     if(curproc_fdt==NULL){
-        return ESRCH;
+        return EINVAL;
     }
     if (INVALID_FD(oldfd) || INVALID_FD(newfd)){
         return EBADF;
@@ -355,6 +375,7 @@ int sys_dup2(int oldfd, int newfd, int *retval){
 
 /*
     int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
+
     Alters the current seek position of the file handle fd and seeks to a new position
     based on pos and whence.
 */
@@ -366,7 +387,7 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
     uint64_t offset;
 
     if(curproc_fdt==NULL){
-        return ESRCH;
+        return EINVAL;
     }
     if (INVALID_FD(fd)) {
         return EBADF;
