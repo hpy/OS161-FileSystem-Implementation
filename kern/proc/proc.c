@@ -175,7 +175,7 @@ static int proc_acquirepid(struct proc *proc){
 		if(cnt > PID_MAX){
 			cnt = PID_MIN;
 		}
-		kprintf("test\n");
+
 		//first time this doesnt match we can insert
 		if(curr->p_pid != cnt){
 			//join new one
