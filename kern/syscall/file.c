@@ -408,7 +408,7 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
     pid_t fork(void)
 */
 int sys_fork(pid_t *retval){
-
+    (void)retval;
 
     return 0;
 }
@@ -419,7 +419,9 @@ int sys_fork(pid_t *retval){
 	getpid does not fail.
 */
 int sys_getpid(pid_t *retval){
-
-
+    //getpid does not fail.
+    if(curproc!=NULL){
+        *retval = curproc->p_pid;
+    }
     return 0;
 }

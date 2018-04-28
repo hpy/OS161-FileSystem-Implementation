@@ -49,11 +49,18 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <synch.h>
+#include <limits.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
+struct proc *lastproc;
+pid_t pid_cnt;
+
+static struct fdt *proc_acquirefdt(void);
+static int proc_acquirepid(struct proc *proc);
+
 
 /*
  * Create a proc structure.
@@ -74,6 +81,13 @@ proc_create(const char *name)
 		return NULL;
 	}
 
+	proc->p_pid = proc_acquirepid(proc);
+	if (proc->p_pid < 0) {
+		kfree(proc->p_name);
+		kfree(proc);
+		return NULL;
+	}
+
 	proc->p_numthreads = 0;
 	spinlock_init(&proc->p_lock);
 
@@ -84,21 +98,82 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 	/* FDT fields */
-	proc->p_fdt = kmalloc(sizeof(struct fdt));
+	proc->p_fdt = proc_acquirefdt();
 	if (proc->p_fdt== NULL) {
-		kfree(proc);
-		return NULL;
-	}
-	proc->p_fdt->count = 0;
-	proc->p_fdt->fdt_mutex = NULL;
-	proc->p_fdt->fdt_mutex = lock_create("fdt_mutex");
-	if(proc->p_fdt->fdt_mutex == NULL){
-		kfree(proc->p_fdt);
 		kfree(proc);
 		return NULL;
 	}
 	return proc;
 }
+
+
+static struct fdt *proc_acquirefdt(void){
+	struct fdt * fdt = kmalloc(sizeof(struct fdt));
+	if (fdt== NULL) {
+		kfree(fdt);
+		return NULL;
+	}
+	fdt->count = 0;
+	fdt->fdt_mutex = NULL;
+	fdt->fdt_mutex = lock_create("fdt_mutex");
+	if(fdt->fdt_mutex == NULL){
+		kfree(fdt);
+		return NULL;
+	}
+	return fdt;
+}
+
+static int proc_acquirepid(struct proc *proc){
+	if(proc==NULL){
+		return -1;
+	}
+
+	if(lastproc == NULL){
+		lastproc = proc;
+		lastproc->next = proc;
+		lastproc->prev = proc;
+	}else{
+		proc->prev = lastproc;
+		proc->next = lastproc->next;
+		lastproc->next = proc;
+		proc->next->prev = proc;
+		lastproc = proc;
+	}
+
+	return pid_cnt++;
+}
+
+
+
+
+//
+//
+// static int proc_acquirepid(struct proc *proc){
+// 	if(proc==NULL){
+// 		return -1;
+// 	}
+//
+// 	if(lastproc == NULL){
+// 		lastproc = proc;
+// 		lastproc->next = proc;
+// 		lastproc->prev = proc;
+// 	}else{
+//         //
+// 		// //we are in wraparound mode
+// 		// if(lastproc->next->p_pid > lastproc->p_pid){
+// 		// 	//we need to find next availble slot to be inserted (pid value)
+// 		// }else{
+// 		// 	if(lastproc->p_pid == MAX_PID){
+// 		// 		//loop around
+// 		// 	}
+// 		// }
+//
+// 	}
+//
+// 	return pid_cnt++;
+// }
+//
+
 
 /*
  * Destroy a proc structure.
@@ -207,6 +282,8 @@ proc_destroy(struct proc *proc)
 void
 proc_bootstrap(void)
 {
+	lastproc = NULL;
+	pid_cnt = PID_MIN;
 	kproc = proc_create("[kernel]");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
