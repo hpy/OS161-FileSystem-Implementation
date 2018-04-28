@@ -59,6 +59,7 @@ struct proc *lastproc;
 int proc_cnt;
 
 static struct fdt *proc_acquirefdt(void);
+static void proc_removefdt(struct proc *proc);
 static int proc_acquirepid(struct proc *proc);
 static void proc_removepid(struct proc *proc);
 
@@ -112,8 +113,11 @@ proc_create(const char *name)
 }
 
 
+/*
+ * Create a fdt structure.
+ */
 static struct fdt *proc_acquirefdt(void){
-	struct fdt * fdt = kmalloc(sizeof(struct fdt));
+	struct fdt *fdt = kmalloc(sizeof(struct fdt));
 	if (fdt== NULL) {
 		kfree(fdt);
 		return NULL;
@@ -129,7 +133,9 @@ static struct fdt *proc_acquirefdt(void){
 }
 
 
-
+/*
+ * Allocate a pid
+ */
 static int proc_acquirepid(struct proc *proc){
 	if(proc==NULL){
 		return -1;
@@ -175,7 +181,9 @@ static int proc_acquirepid(struct proc *proc){
 }
 
 
-
+/*
+ * Deallocate the pid
+ */
 static void proc_removepid(struct proc *proc){
 	if(proc==NULL){
 		return;
@@ -200,6 +208,29 @@ static void proc_removepid(struct proc *proc){
 	next->prev = prev;
 
 }
+
+
+
+/*
+ * Remove the fdt and any fdt entries
+ */
+static void proc_removefdt(struct proc *proc){
+	if(proc->p_fdt==NULL){
+		return;
+	}
+	for(int i = 0; i<OPEN_MAX; i++){
+		if(proc->p_fdt->fdt_entry[i]!=NULL){
+			kfree(proc->p_fdt->fdt_entry[i]);
+			proc->p_fdt->fdt_entry[i] = NULL;
+			proc->p_fdt->count--;
+		}
+	}
+	lock_destroy(proc->p_fdt->fdt_mutex);
+	kfree(proc->p_fdt);
+	proc->p_fdt = NULL;
+}
+
+
 
 
 
@@ -236,19 +267,13 @@ proc_destroy(struct proc *proc)
 	}
 
 	/* FDT fields */
-	if (proc->p_fdt) {
-		for(int i = 0; i<OPEN_MAX; i++){
-			if(proc->p_fdt->fdt_entry[i]!=NULL){
-				kfree(proc->p_fdt->fdt_entry[i]);
-				proc->p_fdt->fdt_entry[i] = NULL;
-				proc->p_fdt->count--;
-			}
-		}
-		lock_destroy(proc->p_fdt->fdt_mutex);
-		kfree(proc->p_fdt);
-		proc->p_fdt = NULL;
-	}
 
+	//NOTE need to check if child has access to this fdt! donot destory if htey do??
+	//or dont destroy the innards!
+
+	proc_removefdt(proc);
+
+	/* PID update */
 	proc_removepid(proc);
 
 
