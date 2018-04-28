@@ -108,7 +108,6 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         vfs_close(vn);
         return result;
     }
-
     return 0;
 }
 
@@ -397,10 +396,13 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
     }
 
     retval64 = oft_entry->seek_pos;
-    *retval = retval64;
+
     split64to32(retval64, &tf->tf_v0, &tf->tf_v1);
 
-    return result;
+    //need to set this to v0 as it overwrites tf_v0 in syscall
+    *retval = (uint32_t)tf->tf_v0;
+
+    return 0;
 }
 /*
     pid_t fork(void)
