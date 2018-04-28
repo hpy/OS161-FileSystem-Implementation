@@ -381,7 +381,6 @@ int sys_dup2(int oldfd, int newfd, int *retval){
 */
 int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
 
-    off_t retval64;
     struct stat *fstat = {0};
     int file_size, result = 0;
     uint64_t offset;
@@ -445,12 +444,9 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
             break;
     }
 
-    /* Update oft_entry seek position */
-    retval64 = oft_entry->seek_pos;
-    lock_release(oft_entry->oft_mutex);
-
     /* Split 64bit value into seperate return arguments */
-    split64to32(retval64, &tf->tf_v0, &tf->tf_v1);
+    split64to32(oft_entry->seek_pos, &tf->tf_v0, &tf->tf_v1);
+    lock_release(oft_entry->oft_mutex);
 
     /* Set retval to v0 value as v0 is overwritten by syscall on return */
     *retval = (uint32_t)tf->tf_v0;
