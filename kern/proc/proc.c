@@ -56,7 +56,7 @@
  */
 struct proc *kproc;
 struct proc *lastproc;
-pid_t pid_cnt;
+int proc_cnt;
 
 static struct fdt *proc_acquirefdt(void);
 static int proc_acquirepid(struct proc *proc);
@@ -70,6 +70,10 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
+
+	if(proc_cnt >= PID_MAX){
+		return NULL; //we have too many processes
+	}
 
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
@@ -103,6 +107,7 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
+	proc_cnt++;
 	return proc;
 }
 
@@ -122,31 +127,6 @@ static struct fdt *proc_acquirefdt(void){
 	}
 	return fdt;
 }
-
-static int proc_acquirepid(struct proc *proc){
-	if(proc==NULL){
-		return -1;
-	}
-
-	if(lastproc == NULL){
-		lastproc = proc;
-		lastproc->next = proc;
-		lastproc->prev = proc;
-	}else{
-		proc->prev = lastproc;
-		proc->next = lastproc->next;
-		lastproc->next = proc;
-		proc->next->prev = proc;
-		lastproc = proc;
-	}
-
-	return pid_cnt++;
-}
-
-
-
-
-//
 //
 // static int proc_acquirepid(struct proc *proc){
 // 	if(proc==NULL){
@@ -158,21 +138,66 @@ static int proc_acquirepid(struct proc *proc){
 // 		lastproc->next = proc;
 // 		lastproc->prev = proc;
 // 	}else{
-//         //
-// 		// //we are in wraparound mode
-// 		// if(lastproc->next->p_pid > lastproc->p_pid){
-// 		// 	//we need to find next availble slot to be inserted (pid value)
-// 		// }else{
-// 		// 	if(lastproc->p_pid == MAX_PID){
-// 		// 		//loop around
-// 		// 	}
-// 		// }
-//
+// 		proc->prev = lastproc;
+// 		proc->next = lastproc->next;
+// 		lastproc->next = proc;
+// 		proc->next->prev = proc;
+// 		lastproc = proc;
 // 	}
 //
 // 	return pid_cnt++;
 // }
 //
+
+
+
+
+
+static int proc_acquirepid(struct proc *proc){
+	if(proc==NULL){
+		return -1;
+	}
+
+	//store first process
+	if(lastproc == NULL){
+		lastproc = proc;
+		lastproc->next = proc;
+		lastproc->prev = proc;
+		return PID_MIN;
+	}
+
+	struct proc *curr = lastproc;
+	struct proc *prev = lastproc->prev;
+	int cnt = curr->p_pid;
+
+	while(1){
+		//we need to loop around to start again
+		if(cnt > PID_MAX){
+			cnt = PID_MIN;
+		}
+		kprintf("test\n");
+		//first time this doesnt match we can insert
+		if(curr->p_pid != cnt){
+			//join new one
+			proc->next = curr;
+			proc->prev = prev;
+
+			//relink the old ones
+			curr->prev = proc;
+			prev->next = proc;
+
+			//store newly inserted
+			lastproc = proc;
+
+			break;
+		}
+		prev = curr;
+		curr = curr->next;
+		cnt++;
+	}
+	return cnt;
+}
+
 
 
 /*
@@ -274,6 +299,7 @@ proc_destroy(struct proc *proc)
 
 	kfree(proc->p_name);
 	kfree(proc);
+	proc_cnt--;
 }
 
 /*
@@ -283,7 +309,7 @@ void
 proc_bootstrap(void)
 {
 	lastproc = NULL;
-	pid_cnt = PID_MIN;
+	proc_cnt = PID_MIN - 1;
 	kproc = proc_create("[kernel]");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
