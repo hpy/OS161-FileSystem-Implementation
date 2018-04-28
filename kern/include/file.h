@@ -84,6 +84,16 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf);
     On error, no new process is created. fork, only returns once, returning -1,
     and errno is set according to the error encountered.
 */
-//pid_t fork(void);
+int sys_fork(pid_t *retval);
+
+
+/*
+    getpid returns the process id of the current process.
+	getpid does not fail.
+*/
+int sys_getpid(pid_t *retval);
+
+
+
 
 #endif /* _FILE_H_ */

@@ -162,13 +162,13 @@ main(int argc, char * argv[])
         }
 
         int fd2 = open("test.file", O_RDWR | O_CREAT );
-        printf("* open() got fd %d\n", fd);
+        printf("* open() got fd %d\n", fd2);
         if (fd2 < 1) {
                 printf("ERROR opening file: %s\n", strerror(errno));
                 exit(1);
         }
         int fd3 = open("test.file", O_RDWR | O_CREAT );
-        printf("* open() got fd %d\n", fd);
+        printf("* open() got fd %d\n", fd3);
         if (fd3 < 1) {
                 printf("ERROR opening file: %s\n", strerror(errno));
                 exit(1);

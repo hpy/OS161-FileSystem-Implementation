@@ -265,6 +265,6 @@ main(void)
 	printf("Passed.\n");
 
 	close(fd);
-	remove(TESTFILE);
+	//remove(TESTFILE);
 	return 0;
 }

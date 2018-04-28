@@ -133,9 +133,13 @@ syscall(struct trapframe *tf)
 			err = sys_dup2((int)tf->tf_a0, (int)tf->tf_a1, &retval);
 			break;
 
-		// case SYS_fork:
-		// 	err = sys_fork();
-		// 	break;
+		case SYS_fork:
+			err = sys_fork((pid_t)&retval);
+			break;
+
+		case SYS_getpid:
+			err = sys_getpid((pid_t)&retval);
+			break;
 
 	    default:
 		kprintf("Unknown syscall %d\n", callno);

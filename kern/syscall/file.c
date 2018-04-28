@@ -407,7 +407,19 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
 /*
     pid_t fork(void)
 */
-// pid_t fork(void){
-//     kprintf("Not Implemented at this time\n");
-//     return -1;
-// }
+int sys_fork(pid_t *retval){
+
+
+    return 0;
+}
+
+
+/*
+    getpid returns the process id of the current process.
+	getpid does not fail.
+*/
+int sys_getpid(pid_t *retval){
+
+
+    return 0;
+}
