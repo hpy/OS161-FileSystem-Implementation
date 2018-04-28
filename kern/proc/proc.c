@@ -60,7 +60,7 @@ int proc_cnt;
 
 static struct fdt *proc_acquirefdt(void);
 static int proc_acquirepid(struct proc *proc);
-
+static int proc_removepid(struct proc *proc);
 
 /*
  * Create a proc structure.
@@ -127,29 +127,6 @@ static struct fdt *proc_acquirefdt(void){
 	}
 	return fdt;
 }
-//
-// static int proc_acquirepid(struct proc *proc){
-// 	if(proc==NULL){
-// 		return -1;
-// 	}
-//
-// 	if(lastproc == NULL){
-// 		lastproc = proc;
-// 		lastproc->next = proc;
-// 		lastproc->prev = proc;
-// 	}else{
-// 		proc->prev = lastproc;
-// 		proc->next = lastproc->next;
-// 		lastproc->next = proc;
-// 		proc->next->prev = proc;
-// 		lastproc = proc;
-// 	}
-//
-// 	return pid_cnt++;
-// }
-//
-
-
 
 
 
@@ -176,7 +153,6 @@ static int proc_acquirepid(struct proc *proc){
 			cnt = PID_MIN;
 		}
 
-		//first time this doesnt match we can insert
 		if(curr->p_pid != cnt){
 			//join new one
 			proc->next = curr;
@@ -196,6 +172,33 @@ static int proc_acquirepid(struct proc *proc){
 		cnt++;
 	}
 	return cnt;
+}
+
+
+
+static void proc_removepid(struct proc *proc){
+	if(proc==NULL){
+		return;
+	}
+
+	//if deleting the last process, then just reset values as if it was bootstrap
+	if(proc->next == proc){
+		lastproc = NULL;
+		proc_cnt = PID_MIN - 1;
+		return;
+	}
+
+	//were we the last process added? then update lastproc
+	if(proc == lastproc){
+		lastproc = proc->prev;
+	}
+
+	struct proc *prev = proc->prev;
+	struct proc *next = proc->next;
+
+	prev->next = next;
+	next->prev = prev;
+
 }
 
 
@@ -245,6 +248,9 @@ proc_destroy(struct proc *proc)
 		kfree(proc->p_fdt);
 		proc->p_fdt = NULL;
 	}
+
+	proc_removepid(proc);
+
 
 	/* VM fields */
 	if (proc->p_addrspace) {
@@ -296,6 +302,9 @@ proc_destroy(struct proc *proc)
 
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
+
+	//relink prev and next
+
 
 	kfree(proc->p_name);
 	kfree(proc);
