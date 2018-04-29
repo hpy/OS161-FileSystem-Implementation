@@ -19,7 +19,7 @@ char buf[MAX_BUF];
 
 int test_openclose(void);
 int test_iohandles(void);
-//int test_read(void);
+
 
 int test_iohandles(void){
     int result = snprintf(buf, MAX_BUF, " Testing Write to STDOUT\t\t\t");
@@ -138,61 +138,6 @@ int test_openclose(void){
 }
 
 
-
-// int test_read(void){
-//     printf(" Testing Read/Write Syscall\t\t\t");
-//
-//     int fd1 = open("test1", O_RDWR | O_CREAT );
-//     if (fd1!=3) {
-//             printf("Error Opening File for Test Number: %d with Error: %d\n", fd1, errno);
-//             exit(1);
-//     }
-//     int fd2 = open("test1", O_RDWR | O_CREAT );
-//     if (fd2!=4) {
-//             printf("Error Opening File for Test Number: %d with Error: %d\n",fd2, errno);
-//             exit(1);
-//     }
-//
-//     size_t written = write(fd1, teststr, strlen(teststr));
-//     if (written!=strlen(teststr)) {
-//             printf("ERROR writing file fd1: %s\n", strerror(errno));
-//             exit(1);
-//     }
-//
-//     //write test string into fd2
-//     written = write(fd2, teststr, strlen(teststr));
-//     if (written!=strlen(teststr)) {
-//             printf("ERROR writing file fd2: %s\n", strerror(errno));
-//             exit(1);
-//     }
-//
-//     char comp1[] = "The quick brown fox jumped over the lazy dog.The quick brown fox jumped over the lazy dog.";
-//
-//     size_t read1 = read(fd1, &buf, strlen(comp1));
-//     if(read1!=strlen(comp1)){
-//         printf("size was: %d\n",read1);
-//         printf("ERROR reading 0 bytes from first read of file: %s\n", strerror(errno));
-//         exit(1);
-//     }
-//
-//     size_t read2 = read(fd2, &buf, strlen(comp1));
-//     if(read2!=0){
-//         printf("ERROR reading 0 bytes from second read of file: %s\n", strerror(errno));
-//         exit(1);
-//     }
-//
-//     //
-//     // strcmp(comp1,)
-//
-//
-//     printf("* closing file\n");
-//     close(fd1);
-//     close(fd2);
-//
-//     return 0;
-// }
-//
-
 int
 main(int argc, char * argv[])
 {
@@ -205,92 +150,114 @@ main(int argc, char * argv[])
 
     test_openclose();
     test_iohandles();
-    //test_read();
 
-        int fd, r, i, j , k;
-        (void) argc;
-        (void) argv;
+    int fd, r, i, j , k;
+    (void) argc;
+    (void) argv;
 
+    printf("\n**********\n* File Tester\n");
 
+    snprintf(buf, MAX_BUF, "**********\n* write() works for stdout\n");
+    write(1, buf, strlen(buf));
+    snprintf(buf, MAX_BUF, "**********\n* write() works for stderr\n");
+    write(2, buf, strlen(buf));
 
+    printf("**********\n* opening new file \"test.file\"\n");
+    fd = open("test.file", O_RDWR | O_CREAT );
+    printf("* open() got fd %d\n", fd);
+    if (fd < 0) {
+           printf("ERROR opening file: %s\n", strerror(errno));
+           exit(1);
+    }
 
-        printf("**********\n* opening old file \"test.file\"\n");
-        fd = open("test.file", O_RDONLY);
-        printf("* open() got fd %d with a O_RDONLY of %d\n", fd,O_RDONLY);
-        if (fd < 0) {
-                printf("ERROR opening file: %s\n", strerror(errno));
-                exit(1);
-        }
+    printf("* writing test string\n");
+    r = write(fd, teststr, strlen(teststr));
+    printf("* wrote %d bytes\n", r);
+    if (r < 0) {
+           printf("ERROR writing file: %s\n", strerror(errno));
+           exit(1);
+    }
 
-        printf("* reading entire file into buffer \n");
-        i = 0;
-        do  {
-                printf("* attempting read of %d bytes\n", MAX_BUF -i);
-                r = read(fd, &buf[i], MAX_BUF - i);
-                printf("* read %d bytes\n", r);
-                i += r;
-        } while (i < MAX_BUF && r > 0);
+    printf("* writing test string again\n");
+    r = write(fd, teststr, strlen(teststr));
+    printf("* wrote %d bytes\n", r);
+    if (r < 0) {
+           printf("ERROR writing file: %s\n", strerror(errno));
+           exit(1);
+    }
+    printf("* closing file\n");
+    close(fd);
 
-        printf("* reading complete\n");
-        if (r < 0) {
-                printf("ERROR reading file: %s\n", strerror(errno));
-                exit(1);
-        }
-        k = j = 0;
-        r = strlen(teststr);
-        do {
-                if (buf[k] != teststr[j]) {
-                        printf("ERROR  file contents mismatch\n");
-                        exit(1);
-                }
-                k++;
-                j = k % r;
-        } while (k < i);
-        printf("* file content okay\n");
+    printf("**********\n* opening old file \"test.file\"\n");
+    fd = open("test.file", O_RDONLY);
+    printf("* open() got fd %d\n", fd);
+    if (fd < 0) {
+           printf("ERROR opening file: %s\n", strerror(errno));
+           exit(1);
+    }
 
-        printf("**********\n* testing lseek\n");
-        r = lseek(fd, 5, SEEK_SET);
-        if (r < 0) {
-                printf("ERROR lseek: %s\n", strerror(errno));
-                exit(1);
-        }
+    printf("* reading entire file into buffer \n");
+    i = 0;
+    do  {
+           printf("* attempting read of %d bytes\n", MAX_BUF -i);
+           r = read(fd, &buf[i], MAX_BUF - i);
+           printf("* read %d bytes\n", r);
+           i += r;
+    } while (i < MAX_BUF && r > 0);
 
-        printf("* reading 10 bytes of file into buffer \n");
-        i = 0;
-        do  {
-                printf("* attempting read of %d bytes\n", 10 - i );
-                r = read(fd, &buf[i], 10 - i);
-                printf("* read %d bytes\n", r);
-                i += r;
-        } while (i < 10 && r > 0);
-        printf("* reading complete\n");
-        if (r < 0) {
-                printf("ERROR reading file: %s\n", strerror(errno));
-                exit(1);
-        }
+    printf("* reading complete\n");
+    if (r < 0) {
+           printf("ERROR reading file: %s\n", strerror(errno));
+           exit(1);
+    }
+    k = j = 0;
+    r = strlen(teststr);
+    do {
+           if (buf[k] != teststr[j]) {
+                   printf("ERROR  file contents mismatch\n");
+                   exit(1);
+           }
+           k++;
+           j = k % r;
+    } while (k < i);
+    printf("* file content okay\n");
 
-        k = 0;
-        j = 5;
-        r = strlen(teststr);
-        do {
-                if (buf[k] != teststr[j]) {
-                        printf("ERROR  file contents mismatch\n");
-                        exit(1);
-                }
-                k++;
-                j = (k + 5)% r;
-        } while (k < 5);
+    printf("**********\n* testing lseek\n");
+    r = lseek(fd, 5, SEEK_SET);
+    if (r < 0) {
+           printf("ERROR lseek: %s\n", strerror(errno));
+           exit(1);
+    }
 
-        printf("* file lseek  okay\n");
-        printf("* closing file\n");
-        close(fd);
+    printf("* reading 10 bytes of file into buffer \n");
+    i = 0;
+    do  {
+           printf("* attempting read of %d bytes\n", 10 - i );
+           r = read(fd, &buf[i], 10 - i);
+           printf("* read %d bytes\n", r);
+           i += r;
+    } while (i < 10 && r > 0);
+    printf("* reading complete\n");
+    if (r < 0) {
+           printf("ERROR reading file: %s\n", strerror(errno));
+           exit(1);
+    }
 
+    k = 0;
+    j = 5;
+    r = strlen(teststr);
+    do {
+           if (buf[k] != teststr[j]) {
+                   printf("ERROR  file contents mismatch\n");
+                   exit(1);
+           }
+           k++;
+           j = (k + 5)% r;
+    } while (k < 5);
 
-        PRINT_LINE
-        PRINT_LINE
-        printf("\t -- All Tests Passed Successfully --\n");
-        PRINT_LINE
-        PRINT_LINE
+    printf("* file lseek  okay\n");
+    printf("* closing file\n");
+    close(fd);
 
-        return 0;
+    return 0;
 }
