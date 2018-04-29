@@ -75,15 +75,11 @@ int sys_dup2(int oldfd, int newfd, int *retval); //returns newfd on success
     On success, lseek returns the new position. On error, -1 is returned,
     and errno is set according to the error encountered.
 */
-int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf);
+int sys_lseek(int fd, int *retval, struct trapframe *tf);
 
 /*
-    On success, fork returns twice, once in the parent process and once in the child process.
-    In the child process, 0 is returned. In the parent process,
-    the process id of the new child process is returned.
-    On error, no new process is created. fork, only returns once, returning -1,
-    and errno is set according to the error encountered.
+    Allocates a new oft entry and attaches vnode and other fields.
 */
-//pid_t fork(void);
+int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
 
 #endif /* _FILE_H_ */

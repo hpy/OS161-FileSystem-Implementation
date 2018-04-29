@@ -18,7 +18,27 @@ char buf[MAX_BUF];
 //test files
 
 int test_openclose(void);
+int test_iohandles(void);
+//int test_read(void);
 
+int test_iohandles(void){
+    int result = snprintf(buf, MAX_BUF, " Testing Write to STDOUT\t\t\t");
+    write(1, buf, strlen(buf));
+    if(result!=27){
+        printf("ERROR writing STDOUT: %s\n", strerror(errno));
+        exit(1);
+    }
+    PRINT_SUCCESS
+
+    snprintf(buf, MAX_BUF, " Testing Write to STDERR\t\t\t");
+    result = write(2, buf, strlen(buf));
+    if(result!=27){
+        printf("ERROR writing STDOUT: %s\n", strerror(errno));
+        exit(1);
+    }
+    PRINT_SUCCESS
+    return 0;
+}
 
 
 int test_openclose(void){
@@ -119,6 +139,60 @@ int test_openclose(void){
 
 
 
+// int test_read(void){
+//     printf(" Testing Read/Write Syscall\t\t\t");
+//
+//     int fd1 = open("test1", O_RDWR | O_CREAT );
+//     if (fd1!=3) {
+//             printf("Error Opening File for Test Number: %d with Error: %d\n", fd1, errno);
+//             exit(1);
+//     }
+//     int fd2 = open("test1", O_RDWR | O_CREAT );
+//     if (fd2!=4) {
+//             printf("Error Opening File for Test Number: %d with Error: %d\n",fd2, errno);
+//             exit(1);
+//     }
+//
+//     size_t written = write(fd1, teststr, strlen(teststr));
+//     if (written!=strlen(teststr)) {
+//             printf("ERROR writing file fd1: %s\n", strerror(errno));
+//             exit(1);
+//     }
+//
+//     //write test string into fd2
+//     written = write(fd2, teststr, strlen(teststr));
+//     if (written!=strlen(teststr)) {
+//             printf("ERROR writing file fd2: %s\n", strerror(errno));
+//             exit(1);
+//     }
+//
+//     char comp1[] = "The quick brown fox jumped over the lazy dog.The quick brown fox jumped over the lazy dog.";
+//
+//     size_t read1 = read(fd1, &buf, strlen(comp1));
+//     if(read1!=strlen(comp1)){
+//         printf("size was: %d\n",read1);
+//         printf("ERROR reading 0 bytes from first read of file: %s\n", strerror(errno));
+//         exit(1);
+//     }
+//
+//     size_t read2 = read(fd2, &buf, strlen(comp1));
+//     if(read2!=0){
+//         printf("ERROR reading 0 bytes from second read of file: %s\n", strerror(errno));
+//         exit(1);
+//     }
+//
+//     //
+//     // strcmp(comp1,)
+//
+//
+//     printf("* closing file\n");
+//     close(fd1);
+//     close(fd2);
+//
+//     return 0;
+// }
+//
+
 int
 main(int argc, char * argv[])
 {
@@ -130,15 +204,8 @@ main(int argc, char * argv[])
     PRINT_LINE
 
     test_openclose();
-
-
-
-
-    PRINT_LINE
-    PRINT_LINE
-    printf("\t -- All Tests Passed Successfully --\n");
-    PRINT_LINE
-    PRINT_LINE
+    test_iohandles();
+    //test_read();
 
         int fd, r, i, j , k;
         (void) argc;
@@ -146,54 +213,6 @@ main(int argc, char * argv[])
 
 
 
-        printf("\n**********\n* File Tester\n");
-
-        snprintf(buf, MAX_BUF, "**********\n* write() works for stdout\n");
-        write(1, buf, strlen(buf));
-        snprintf(buf, MAX_BUF, "**********\n* write() works for stderr\n");
-        write(2, buf, strlen(buf));
-
-        printf("**********\n* opening new file \"test.file\"\n");
-        fd = open("test.file", O_RDWR | O_CREAT );
-        printf("* open() got fd %d\n", fd);
-        if (fd < 0) {
-                printf("ERROR opening file: %s\n", strerror(errno));
-                exit(1);
-        }
-
-        int fd2 = open("test.file", O_RDWR | O_CREAT );
-        printf("* open() got fd %d\n", fd);
-        if (fd2 < 1) {
-                printf("ERROR opening file: %s\n", strerror(errno));
-                exit(1);
-        }
-        int fd3 = open("test.file", O_RDWR | O_CREAT );
-        printf("* open() got fd %d\n", fd);
-        if (fd3 < 1) {
-                printf("ERROR opening file: %s\n", strerror(errno));
-                exit(1);
-        }
-
-        printf("* writing test string\n");
-        r = write(fd, teststr, strlen(teststr));
-        printf("* wrote %d bytes into fd: %d\n", r,fd);
-        if (r < 0) {
-                printf("ERROR writing file: %s\n", strerror(errno));
-                exit(1);
-        }
-
-        printf("* writing test string again\n");
-        r = write(fd, teststr, strlen(teststr));
-        printf("* wrote %d bytes\n", r);
-        if (r < 0) {
-                printf("ERROR writing file: %s\n", strerror(errno));
-                exit(1);
-        }
-
-        printf("* closing file\n");
-        close(fd);
-                close(fd2);
-                        close(fd3);
 
         printf("**********\n* opening old file \"test.file\"\n");
         fd = open("test.file", O_RDONLY);
@@ -265,6 +284,13 @@ main(int argc, char * argv[])
         printf("* file lseek  okay\n");
         printf("* closing file\n");
         close(fd);
+
+
+        PRINT_LINE
+        PRINT_LINE
+        printf("\t -- All Tests Passed Successfully --\n");
+        PRINT_LINE
+        PRINT_LINE
 
         return 0;
 }

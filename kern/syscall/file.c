@@ -25,9 +25,7 @@
 #define INVALID_WRITE(flags) (!((flags & O_WRONLY) || (flags & O_RDWR) ))
 
 static int validflag(int flag, int io_type);
-static int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
 static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int uio_rw_flag);
-
 
 
 /*
@@ -58,7 +56,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return EINVAL;
     }
     if(filename==NULL){
-        return EINVAL;
+        return EFAULT;
     }
     if(retval==NULL){
         return EINVAL;
@@ -75,20 +73,18 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     if(file == NULL){
         return EMFILE;
     }
-    /* filename is in userspace */
-    if ((vaddr_t)filename < USERSPACETOP){
-        size_t got_len = 0;
-        result = copyinstr((const_userptr_t)filename, file, PATH_MAX, &got_len);
-        if(result){
-            return result;
-        }
-    }else{
-        /* filename is in kernelspace -> stdin,stdout,stderr */
-        if(strlen(filename)>PATH_MAX){
-            return ENAMETOOLONG;
-        }
-        strcpy(file,filename);
+
+    /* filename is in kernelspace*/
+    if ((vaddr_t)filename >= USERSPACETOP){
+        return EFAULT;
     }
+
+    size_t got_len = 0;
+    result = copyinstr((const_userptr_t)filename, file, PATH_MAX, &got_len);
+    if(result){
+        return result;
+    }
+
 
     /* retrieve vnode */
     struct vnode *vn;
@@ -115,7 +111,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 
     Allocate a new oft entry and insert into first available slot in the process fdt table
 */
-static int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
+int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
     if(curproc_fdt==NULL){
         return EINVAL;
     }
@@ -331,11 +327,18 @@ int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     Note that this is different from opening the same file twice.
 */
 int sys_dup2(int oldfd, int newfd, int *retval){
+
     if(curproc_fdt==NULL){
         return EINVAL;
     }
+
     if (INVALID_FD(oldfd) || INVALID_FD(newfd)){
         return EBADF;
+    }
+
+    if (oldfd == newfd){
+        *retval = oldfd;
+        return 0;
     }
 
     struct oft_entry *old_oft = curproc_fdt_entry(oldfd);
@@ -344,7 +347,7 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     lock_acquire(curproc_fdt->fdt_mutex);
     if(old_oft==NULL){
         lock_release(curproc_fdt->fdt_mutex);
-        return EFAULT;
+        return EBADF;
     }
 
     lock_acquire(old_oft->oft_mutex);
@@ -374,16 +377,16 @@ int sys_dup2(int oldfd, int newfd, int *retval){
 }
 
 /*
-    int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
+    int sys_lseek(int fd, int whence, off_t *retval)
 
     Alters the current seek position of the file handle fd and seeks to a new position
     based on pos and whence.
 */
-int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
+int sys_lseek(int fd, int *retval, struct trapframe *tf){
 
-    struct stat *fstat = {0};
-    int file_size, result = 0;
-    uint64_t offset;
+    struct stat fstat;
+    int file_size, whence, result = 0;
+    int64_t offset;
 
     if(curproc_fdt==NULL){
         return EINVAL;
@@ -393,7 +396,7 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
     }
 
     /*merge two arguments into one 64bit value */
-    join32to64(tf->tf_a2, tf->tf_a3, &offset);
+    join32to64(tf->tf_a2, tf->tf_a3, (uint64_t*)&offset);
 
     /* copy from userspace into kernelspace */
     result = copyin((userptr_t)tf->tf_sp + 16, &whence, sizeof(int));
@@ -406,36 +409,47 @@ int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf){
     struct oft_entry *oft_entry = curproc_fdt_entry(fd);
     if(oft_entry == NULL){
         lock_release(curproc_fdt->fdt_mutex);
-        return EFAULT;
+        return EBADF;
     }
+
     lock_acquire(oft_entry->oft_mutex);
     lock_release(curproc_fdt->fdt_mutex);
 
     if (!(VOP_ISSEEKABLE(oft_entry->vn))) {
+        lock_release(oft_entry->oft_mutex);
         return ESPIPE;
     }
-
-    if ((whence + pos) < 0) {
-        return EINVAL;
-    }
-
+//lseek(fd, -50, SEEK_CUR);
     switch (whence) {
         /* Seek relative to beginning of file */
         case SEEK_SET:
+            if (offset < 0) {
+                lock_release(oft_entry->oft_mutex);
+                return EINVAL;
+            }
             oft_entry->seek_pos = offset;
             break;
         /* Seek relative to current position in file */
         case SEEK_CUR:
+            if ((oft_entry->seek_pos + offset) < 0) {
+                lock_release(oft_entry->oft_mutex);
+                return EINVAL;
+            }
             oft_entry->seek_pos += offset;
             break;
         /* Seek relative to end of file */
         case SEEK_END:
-            result = VOP_STAT(oft_entry->vn, fstat);
+            result = VOP_STAT(oft_entry->vn, &fstat);
             if (result) {
                 lock_release(oft_entry->oft_mutex);
                 return result;
             }
-            file_size = fstat->st_size;
+            file_size = fstat.st_size;
+            if ((file_size + offset) < 0) {
+
+                lock_release(oft_entry->oft_mutex);
+                return EINVAL;
+            }
             oft_entry->seek_pos = file_size + offset;
             break;
         default:
