@@ -259,5 +259,11 @@ main(int argc, char * argv[])
     printf("* closing file\n");
     close(fd);
 
+    PRINT_LINE
+    PRINT_LINE
+    printf("\t -- All Tests Passed Successfully --\n");
+    PRINT_LINE
+    PRINT_LINE
+
     return 0;
 }
