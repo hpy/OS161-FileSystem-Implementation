@@ -266,8 +266,25 @@ main(int argc, char **argv)
 	// printf("argument selected: %s\n",argv[0]);
     //
 
-	runit('c');
+	runit('2');
 
+	// [a] execv                   [b] waitpid
+	// [c] open                    [d] read
+	// [e] write                   [f] close
+	// [g] reboot                  [h] sbrk
+	// [i] ioctl                   [j] lseek
+	// [k] fsync                   [l] ftruncate
+	// [m] fstat                   [n] remove
+	// [o] rename                  [p] link
+	// [q] mkdir                   [r] rmdir
+	// [s] chdir                   [t] getdirentry
+	// [u] symlink                 [v] readlink
+	// [w] dup2                    [x] pipe
+	// [y] __time                  [z] __getcwd
+	// [{] stat                    [|] lstat
+	// [1] asst1                   [2] asst2
+	// [3] asst3                   [4] asst4
+	// [*] all                     [!] quit
 	if (argc > 1) {
 		for (i=1; i<argc; i++) {
 			for (j=0; argv[i][j]; j++) {

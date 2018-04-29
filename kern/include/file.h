@@ -55,7 +55,7 @@ int sys_close(int fd);
     On error, read returns -1 and sets errno to a suitable error code
     for the error condition encountered.
 */
-int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval);
+int sys_write(int fd, void *buf, size_t nbytes, ssize_t *retval);
 
 /*
     The count of bytes written is returned. This count should be positive.
@@ -63,7 +63,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval);
     this only occurs at end-of-file on fixed-size objects. On error, write returns -1
     and sets errno to a suitable error code for the error condition encountered.
 */
-int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval);
+int sys_read(int fd, void *buf, size_t nbytes, ssize_t *retval);
 
 /*
     dup2 returns newfd. On error, -1 is returned, and errno is set

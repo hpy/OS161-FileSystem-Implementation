@@ -25,7 +25,7 @@
 #define INVALID_WRITE(flags) (!((flags & O_WRONLY) || (flags & O_RDWR) ))
 
 static int validflag(int flag, int io_type);
-static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int uio_rw_flag);
+static int sys_io(int fd, void *buf, size_t nbytes, ssize_t *retval, int uio_rw_flag);
 
 
 /*
@@ -53,13 +53,13 @@ static int validflag(int flag, int io_type){
 */
 int sys_open(const char *filename, int flags, mode_t mode, int *retval){
     if(curproc_fdt==NULL){
-        return EINVAL;
+        return EFAULT;
     }
     if(filename==NULL){
         return EFAULT;
     }
     if(retval==NULL){
-        return EINVAL;
+        return EFAULT;
     }
 
     /* intial check does not require fdt lock simply saves time from fail later on*/
@@ -74,17 +74,11 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
         return EMFILE;
     }
 
-    /* filename is in kernelspace*/
-    if ((vaddr_t)filename >= USERSPACETOP){
-        return EFAULT;
-    }
-
     size_t got_len = 0;
     result = copyinstr((const_userptr_t)filename, file, PATH_MAX, &got_len);
     if(result){
         return result;
     }
-
 
     /* retrieve vnode */
     struct vnode *vn;
@@ -113,13 +107,13 @@ int sys_open(const char *filename, int flags, mode_t mode, int *retval){
 */
 int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
     if(curproc_fdt==NULL){
-        return EINVAL;
+        return EFAULT;
     }
     if(vn==NULL){
-        return EINVAL;
+        return EFAULT;
     }
     if(retval==NULL){
-        return EINVAL;
+        return EFAULT;
     }
 
     /* initialise oft entry */
@@ -172,7 +166,7 @@ int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval){
 */
 int sys_close(int fd){
     if(curproc_fdt==NULL){
-        return EINVAL;
+        return EFAULT;
     }
     if(INVALID_FD(fd)){
         return EBADF;
@@ -183,7 +177,7 @@ int sys_close(int fd){
     struct oft_entry *oft_entry = curproc_fdt_entry(fd);
     if (oft_entry==NULL){
         lock_release(curproc_fdt->fdt_mutex);
-        return EFAULT;
+        return EBADF;
     }
 
     lock_acquire(oft_entry->oft_mutex);
@@ -223,25 +217,29 @@ int sys_close(int fd){
     The file must have been opened with a valid matching read/write operation.
     Each read/write operation is atomic relative to other I/O to the same file.
 */
-static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int uio_rw_flag) {
+static int sys_io(int fd, void *buf, size_t nbytes, ssize_t *retval, int uio_rw_flag) {
+
     if(curproc_fdt==NULL){
-        return EINVAL;
+        return EFAULT;
     }
-    if(buf==NULL){
-        return EINVAL;
-    }
-    if(retval==NULL){
-        return EINVAL;
-    }
+
     if(INVALID_FD(fd)){
         return EBADF;
+    }
+
+    if(buf==NULL){
+        return EFAULT;
+    }
+
+    if(retval==NULL){
+        return EFAULT;
     }
 
     lock_acquire(curproc_fdt->fdt_mutex);
     struct oft_entry *oft_entry = curproc_fdt_entry(fd);
     if(oft_entry==NULL){
         lock_release(curproc_fdt->fdt_mutex);
-        return EFAULT;
+        return EBADF;
     }
 
     lock_acquire(oft_entry->oft_mutex);
@@ -259,6 +257,10 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int u
 
     /* initialise the uio structure */
     uio_kinit(&iov, &uio, (void *)buf, nbytes, oft_entry->seek_pos, uio_rw_flag);
+
+    uio.uio_segflg = UIO_USERSPACE;
+	uio.uio_space = curproc->p_addrspace;
+
 
     if (uio_rw_flag == UIO_WRITE) {
         result = VOP_WRITE(oft_entry->vn, &uio);
@@ -296,7 +298,7 @@ static int sys_io(int fd, const void *buf, size_t nbytes, ssize_t *retval, int u
     The current seek position of the file is advanced by the number of bytes written.
     Each write (or read) operation is atomic relative to other I/O to the same file.
 */
-int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
+int sys_write(int fd, void *buf, size_t nbytes, ssize_t *retval){
     return sys_io(fd, buf, nbytes, retval, UIO_WRITE);
 }
 
@@ -311,7 +313,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval){
     The current seek position of the file is advanced by the number of bytes read.
     Each read (or write) operation is atomic relative to other I/O to the same file.
 */
-int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
+int sys_read(int fd, void *buf, size_t nbytes, ssize_t *retval){
     return sys_io(fd, buf, nbytes, retval, UIO_READ);
 }
 
@@ -329,7 +331,7 @@ int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval){
 int sys_dup2(int oldfd, int newfd, int *retval){
 
     if(curproc_fdt==NULL){
-        return EINVAL;
+        return EFAULT;
     }
 
     if (INVALID_FD(oldfd) || INVALID_FD(newfd)){
@@ -367,8 +369,8 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     lock_release(curproc_fdt->fdt_mutex);
 
     /* point new_oft to the old_oft entry */
-    new_oft = old_oft;
-    new_oft->ref_cnt++;
+    curproc_fdt_entry(newfd) = old_oft;
+    curproc_fdt_entry(newfd)->ref_cnt++;
     *retval = newfd;
 
     lock_release(old_oft->oft_mutex);
@@ -389,8 +391,9 @@ int sys_lseek(int fd, int *retval, struct trapframe *tf){
     int64_t offset;
 
     if(curproc_fdt==NULL){
-        return EINVAL;
+        return EFAULT;
     }
+
     if (INVALID_FD(fd)) {
         return EBADF;
     }
@@ -419,7 +422,7 @@ int sys_lseek(int fd, int *retval, struct trapframe *tf){
         lock_release(oft_entry->oft_mutex);
         return ESPIPE;
     }
-//lseek(fd, -50, SEEK_CUR);
+
     switch (whence) {
         /* Seek relative to beginning of file */
         case SEEK_SET:

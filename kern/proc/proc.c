@@ -49,6 +49,7 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <synch.h>
+#include <vfs.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -97,6 +98,9 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
+	for(int i = 0; i<OPEN_MAX; i++){
+		proc->p_fdt->fdt_entry[i] = NULL;
+	}
 	return proc;
 }
 
@@ -136,6 +140,9 @@ proc_destroy(struct proc *proc)
 	if (proc->p_fdt) {
 		for(int i = 0; i<OPEN_MAX; i++){
 			if(proc->p_fdt->fdt_entry[i]!=NULL){
+				if(proc->p_fdt->fdt_entry[i]->ref_cnt <= 1){
+					vfs_close(proc->p_fdt->fdt_entry[i]->vn);
+				}
 				kfree(proc->p_fdt->fdt_entry[i]);
 				proc->p_fdt->fdt_entry[i] = NULL;
 				proc->p_fdt->count--;
