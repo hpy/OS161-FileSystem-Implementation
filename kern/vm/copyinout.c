@@ -131,7 +131,6 @@ copycheck(const_userptr_t userptr, size_t len, size_t *stoplen)
 
 	if (bot >= USERSPACETOP) {
 		/* region is within the kernel */
-		kprintf("ERROR HERE\n");
 		return EFAULT;
 	}
 
