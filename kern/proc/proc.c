@@ -50,6 +50,7 @@
 #include <vnode.h>
 #include <synch.h>
 #include <limits.h>
+#include <vfs.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -122,12 +123,17 @@ static struct fdt *proc_acquirefdt(void){
 		kfree(fdt);
 		return NULL;
 	}
+
 	fdt->count = 0;
 	fdt->fdt_mutex = NULL;
 	fdt->fdt_mutex = lock_create("fdt_mutex");
 	if(fdt->fdt_mutex == NULL){
 		kfree(fdt);
 		return NULL;
+	}
+	//NULL out all entries
+	for(int i = 0; i<OPEN_MAX; i++){
+		fdt->fdt_entry[i] = NULL;
 	}
 	return fdt;
 }
@@ -229,8 +235,6 @@ static void proc_removefdt(struct proc *proc){
 	kfree(proc->p_fdt);
 	proc->p_fdt = NULL;
 }
-
-
 
 
 

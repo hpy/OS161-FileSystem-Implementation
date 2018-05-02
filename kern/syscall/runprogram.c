@@ -46,6 +46,9 @@
 #include <test.h>
 #include <file.h>
 
+
+static int io_bootstrap(char *filename, int flags, mode_t mode, int *retval);
+
 /*
  * Load program "progname" and start running it in usermode.
  * Does not return except on error.
@@ -101,14 +104,14 @@ runprogram(char *progname)
 	/* assign stdin */
 	int retval = 0;
 	char stdin[] = "con:";
-	result = sys_open(stdin, O_WRONLY, 0, &retval);
+	result = io_bootstrap(stdin, O_WRONLY, 0, &retval);
 	if (result) {
 		return result;
 	}
 
 	/* assign stdout */
 	char stdout[] = "con:";
-	result = sys_open(stdout, O_WRONLY, 0, &retval);
+	result = io_bootstrap(stdout, O_WRONLY, 0, &retval);
 	if (result) {
 		sys_close(0);
 		return result;
@@ -116,7 +119,7 @@ runprogram(char *progname)
 
 	/* assign stderr */
 	char stderr[] = "con:";
-	result = sys_open(stderr, O_WRONLY, 0, &retval);
+	result = io_bootstrap(stderr, O_WRONLY, 0, &retval);
 	if (result) {
 		sys_close(0);
 		sys_close(1);
@@ -137,4 +140,36 @@ runprogram(char *progname)
 	sys_close(2);
 
 	return EINVAL;
+}
+
+
+static int io_bootstrap(char *filename, int flags, mode_t mode, int *retval){
+
+    if(curproc_fdt==NULL){
+        return EINVAL;
+    }
+
+    if(filename==NULL){
+        return EFAULT;
+    }
+
+    if(retval==NULL){
+        return EINVAL;
+    }
+
+	/* retrieve vnode */
+    struct vnode *vn;
+    int result = vfs_open (filename, flags, mode, &vn);
+    if(result){
+        return result;
+    }
+
+    /* create oft entry and allocate to io fdt */
+    result = oft_acquire(vn, flags, mode, retval);
+    if(result){
+        vfs_close(vn);
+        return result;
+    }
+
+    return 0;
 }

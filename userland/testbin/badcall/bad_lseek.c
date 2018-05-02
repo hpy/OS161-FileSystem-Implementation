@@ -231,6 +231,7 @@ lseek_loc_pasteof(void)
 	}
 
 	pos = lseek(fd, -50, SEEK_CUR);
+
 	if (pos == -1) {
 		report_warn("small seek beyond EOF failed");
 		report_failure();

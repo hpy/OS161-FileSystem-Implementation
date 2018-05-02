@@ -55,7 +55,7 @@ int sys_close(int fd);
     On error, read returns -1 and sets errno to a suitable error code
     for the error condition encountered.
 */
-int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval);
+int sys_write(int fd, void *buf, size_t nbytes, ssize_t *retval);
 
 /*
     The count of bytes written is returned. This count should be positive.
@@ -63,7 +63,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, ssize_t *retval);
     this only occurs at end-of-file on fixed-size objects. On error, write returns -1
     and sets errno to a suitable error code for the error condition encountered.
 */
-int sys_read(int fd, const void *buf, size_t nbytes, ssize_t *retval);
+int sys_read(int fd, void *buf, size_t nbytes, ssize_t *retval);
 
 /*
     dup2 returns newfd. On error, -1 is returned, and errno is set
@@ -75,13 +75,18 @@ int sys_dup2(int oldfd, int newfd, int *retval); //returns newfd on success
     On success, lseek returns the new position. On error, -1 is returned,
     and errno is set according to the error encountered.
 */
-int sys_lseek(int fd, off_t pos, int whence, int *retval, struct trapframe *tf);
+int sys_lseek(int fd, int *retval, struct trapframe *tf);
+
+
 
 /*
-    On success, fork returns twice, once in the parent process and once in the child process.
-    In the child process, 0 is returned. In the parent process,
-    the process id of the new child process is returned.
-    On error, no new process is created. fork, only returns once, returning -1,
+    Allocates a new oft entry and attaches vnode and other fields.
+*/
+int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
+
+
+/*
+    On success, fork returns the new child process id to the parent and 0 to the child. On error, -1 is returned,
     and errno is set according to the error encountered.
 */
 int sys_fork(pid_t *retval);

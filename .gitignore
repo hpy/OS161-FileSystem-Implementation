@@ -1,3 +1,5 @@
 *.o
 kern/compile/ASST2/*
-build/userland/testbin/*
+/build
+/defs.mk
+/kern/compile
