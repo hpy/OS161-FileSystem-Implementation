@@ -89,7 +89,7 @@ int oft_acquire(struct vnode *vn, int flags, mode_t mode, int *retval);
     On success, fork returns the new child process id to the parent and 0 to the child. On error, -1 is returned,
     and errno is set according to the error encountered.
 */
-int sys_fork(pid_t *retval);
+int sys_fork(pid_t *retval, struct trapframe *tf);
 
 
 /*

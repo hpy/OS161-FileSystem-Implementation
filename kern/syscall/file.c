@@ -18,6 +18,7 @@
 #include <proc.h>
 #include <mips/trapframe.h>
 #include <vm.h>
+#include <addrspace.h>
 
 
 #define INVALID_FD(fd) (fd < 0 || fd >= OPEN_MAX)
@@ -473,10 +474,67 @@ int sys_lseek(int fd, int *retval, struct trapframe *tf){
 /*
     pid_t fork(void)
 */
-int sys_fork(pid_t *retval){
+int sys_fork(pid_t *retval, struct trapframe *tf){
     (void)retval;
+    (void)tf;
+    return 0;
 
-    return -1;
+    // variables
+    struct proc * cproc;
+    int result = 0, pi, ci;
+
+    // NOTE create a proc structure with proc_create_runprogram()
+    // this calls proc_create
+    cproc = proc_create_runprogram(curproc->p_name);
+    if (cproc == NULL) {
+        return ENOMEM;
+    }
+    /*
+    NOTE we now have a proc cproc that looks like this;
+    struct proc {
+    	int p_pid (has a unique pid)
+    	char *p_name (same as parent)
+    	struct spinlock p_lock (has a spinlock)
+    	unsigned p_numthreads = 0; ??? NOTE do we change this to 1?
+    	struct addrspace *p_addrspace = NULL;
+    	struct vnode *p_cwd (same as parent)
+    	struct fdt *p_fdt (has an fdt but it is blank)
+    	struct proc *prev (set in proc_acquirepid)
+    	struct proc *next (as above)
+    };
+    */
+
+    // NOTE num threads is 0, when is it set to 1, here???
+
+    // NOTE need to make a copy of the address space (NOT SHARED)
+    // no need to explicity create addresspace with as_create, as_copy does that
+    result = as_copy(curproc->p_addrspace, &cproc->p_addrspace);
+    if (result) {
+        return result;
+    }
+
+    // NOTE need to copy values (pointers to oft entries) from parent fdt
+    // to child fdt, do not map at same index, child must have fd's mapped to
+    // its lowest available index by convention
+    ci = 0;
+    for (pi = 0; pi < OPEN_MAX; pi++) {
+        if (curproc_fdt_entry(pi) != NULL) {
+            cproc->p_fdt->fdt_entry[ci++] = curproc_fdt_entry(pi);
+        }
+    }
+
+    // NOTE now copy trapframe across from parent to child (be careful, there
+    // is a race condition that can happen)
+    // which process should do the copying?
+    // doesn't matter where on the stack it is copied to
+    // current trap frame is on kernel stack ?
+
+    // NOTE now call enter_forked_process(tf) with the copied trapframe (has
+    // return register modified to be 0)
+    // we need to implement enter_forked_process() as well
+    enter_forked_process(ctf);
+
+    return 0;
 }
 
 
