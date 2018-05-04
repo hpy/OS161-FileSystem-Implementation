@@ -475,9 +475,9 @@ int sys_lseek(int fd, int *retval, struct trapframe *tf){
     pid_t fork(void)
 */
 int sys_fork(pid_t *retval, struct trapframe *tf){
+
     (void)retval;
     (void)tf;
-    return 0;
 
     // variables
     struct proc * cproc;
@@ -520,6 +520,7 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
     for (pi = 0; pi < OPEN_MAX; pi++) {
         if (curproc_fdt_entry(pi) != NULL) {
             cproc->p_fdt->fdt_entry[ci++] = curproc_fdt_entry(pi);
+            curproc_fdt_entry(pi)->ref_cnt++;
         }
     }
 
@@ -528,11 +529,12 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
     // which process should do the copying?
     // doesn't matter where on the stack it is copied to
     // current trap frame is on kernel stack ?
+    //cproc->p_addrspace->as_stackpbase - ??
 
     // NOTE now call enter_forked_process(tf) with the copied trapframe (has
     // return register modified to be 0)
     // we need to implement enter_forked_process() as well
-    enter_forked_process(ctf);
+    //enter_forked_process(ctf);
 
     return 0;
 }
