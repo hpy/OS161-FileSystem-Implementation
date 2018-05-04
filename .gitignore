@@ -1,5 +1,4 @@
 *.o
-kern/compile/ASST2/*
 /build
 /defs.mk
 /kern/compile
