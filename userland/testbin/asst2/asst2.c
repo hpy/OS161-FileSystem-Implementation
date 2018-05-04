@@ -19,6 +19,18 @@ char buf[MAX_BUF];
 
 int test_openclose(void);
 int test_iohandles(void);
+void test_fork(void);
+
+void test_fork(void) {
+	printf("About to fork..\n");
+	pid_t pid = fork();
+	if (pid == 0) {
+		printf("Hello from child\n");
+	} else {
+		printf("Hello from parent\n");
+	}
+	printf("test_fork passed\n");
+}
 
 
 int test_iohandles(void){
@@ -259,11 +271,14 @@ main(int argc, char * argv[])
     printf("* closing file\n");
     close(fd);
 
+
     PRINT_LINE
     PRINT_LINE
     printf("\t -- All Tests Passed Successfully --\n");
     PRINT_LINE
     PRINT_LINE
+
+    test_fork();
 
     return 0;
 }

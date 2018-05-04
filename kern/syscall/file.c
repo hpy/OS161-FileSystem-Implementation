@@ -483,8 +483,15 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
     struct proc * cproc;
     int result = 0, pi, ci;
 
-    // NOTE create a proc structure with proc_create_runprogram()
-    // this calls proc_create
+    // grab copy of trapframe so subsequent syscalls do not matter
+    struct trapframe *ctf = kmalloc(sizeof(*ctf));
+    if (ctf == NULL) {
+        return ENOMEM;
+    }
+
+    memcpy(ctf,tf,sizeof(struct trapframe));
+
+    // NOTE create child process
     cproc = proc_create_runprogram(curproc->p_name);
     if (cproc == NULL) {
         return ENOMEM;
@@ -504,18 +511,14 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
     };
     */
 
-    // NOTE num threads is 0, when is it set to 1, here???
-
     // NOTE need to make a copy of the address space (NOT SHARED)
-    // no need to explicity create addresspace with as_create, as_copy does that
     result = as_copy(curproc->p_addrspace, &cproc->p_addrspace);
     if (result) {
         return result;
     }
+    // as activate???
 
-    // NOTE need to copy values (pointers to oft entries) from parent fdt
-    // to child fdt, do not map at same index, child must have fd's mapped to
-    // its lowest available index by convention
+    // NOTE copy file stuff
     ci = 0;
     for (pi = 0; pi < OPEN_MAX; pi++) {
         if (curproc_fdt_entry(pi) != NULL) {
@@ -524,17 +527,13 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
         }
     }
 
-    // NOTE now copy trapframe across from parent to child (be careful, there
-    // is a race condition that can happen)
-    // which process should do the copying?
-    // doesn't matter where on the stack it is copied to
-    // current trap frame is on kernel stack ?
-    //cproc->p_addrspace->as_stackpbase - ??
+    result = thread_fork(curthread->t_name, cproc, enter_forked_process, ctf, 0);
+    if (result) {
+        kfree(ctf);
+        return ENOMEM;
+    }
 
-    // NOTE now call enter_forked_process(tf) with the copied trapframe (has
-    // return register modified to be 0)
-    // we need to implement enter_forked_process() as well
-    //enter_forked_process(ctf);
+    *retval = cproc->p_pid;
 
     return 0;
 }
