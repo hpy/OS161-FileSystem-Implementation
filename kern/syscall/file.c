@@ -380,6 +380,8 @@ int sys_dup2(int oldfd, int newfd, int *retval){
     return 0;
 }
 
+
+
 /*
     int sys_lseek(int fd, int whence, off_t *retval)
 
@@ -478,6 +480,10 @@ int sys_lseek(int fd, int *retval, struct trapframe *tf){
 
 /*
     pid_t fork(void)
+
+    Fork duplicates the currently running process.
+    The two copies are identical, except that one (the "new" one, or "child"),
+    has a new, unique process id, and in the other (the "parent") the process id is unchanged.
 */
 int sys_fork(pid_t *retval, struct trapframe *tf){
     struct proc * cproc;
@@ -487,7 +493,7 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
 		return ENPROC;
 	}
 
-    /* Copy current trapframe */
+    /* copy current trapframe - freed by child process*/
     struct trapframe *ctf = kmalloc(sizeof(*ctf));
     if (ctf == NULL) {
         return ENOMEM;
@@ -519,7 +525,7 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
 
     cproc->p_fdt->count = curproc_fdt->count;
 
-    /* copy address space of parent and asign to child */
+    /* copy address space of parent and assign to child */
     result = as_copy(curproc->p_addrspace, &cproc->p_addrspace);
     if (result) {
         proc_destroy(cproc);
@@ -543,6 +549,8 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
 
 
 /*
+    int sys_getpid(pid_t *retval)
+
     getpid returns the process id of the current process.
 	getpid does not fail.
 */
