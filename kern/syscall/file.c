@@ -19,6 +19,7 @@
 #include <mips/trapframe.h>
 #include <vm.h>
 #include <addrspace.h>
+#include <addrspace.h>
 
 
 #define INVALID_FD(fd) (fd < 0 || fd >= OPEN_MAX)
@@ -471,19 +472,22 @@ int sys_lseek(int fd, int *retval, struct trapframe *tf){
 
     return 0;
 }
+
+
+
+
 /*
     pid_t fork(void)
 */
 int sys_fork(pid_t *retval, struct trapframe *tf){
-
-    (void)retval;
-    (void)tf;
-
-    // variables
     struct proc * cproc;
-    int result = 0, pi, ci;
+    int result = 0;
 
-    // grab copy of trapframe so subsequent syscalls do not matter
+    if(proc_cnt >= PID_MAX){
+		return ENPROC;
+	}
+
+    /* Copy current trapframe */
     struct trapframe *ctf = kmalloc(sizeof(*ctf));
     if (ctf == NULL) {
         return ENOMEM;
@@ -491,52 +495,51 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
 
     memcpy(ctf,tf,sizeof(struct trapframe));
 
-    // NOTE create child process
+    /* create child process */
     cproc = proc_create_runprogram(curproc->p_name);
     if (cproc == NULL) {
+        kfree(ctf);
         return ENOMEM;
     }
-    /*
-    NOTE we now have a proc cproc that looks like this;
-    struct proc {
-    	int p_pid (has a unique pid)
-    	char *p_name (same as parent)
-    	struct spinlock p_lock (has a spinlock)
-    	unsigned p_numthreads = 0; ??? NOTE do we change this to 1?
-    	struct addrspace *p_addrspace = NULL;
-    	struct vnode *p_cwd (same as parent)
-    	struct fdt *p_fdt (has an fdt but it is blank)
-    	struct proc *prev (set in proc_acquirepid)
-    	struct proc *next (as above)
-    };
-    */
 
-    // NOTE need to make a copy of the address space (NOT SHARED)
-    result = as_copy(curproc->p_addrspace, &cproc->p_addrspace);
-    if (result) {
-        return result;
+    /* copy VFS information onto child */
+    cproc->p_fdt->fdt_mutex = lock_create("fdt_mutex");
+    if(cproc->p_fdt->fdt_mutex == NULL){
+        proc_destroy(cproc);
+        kfree(ctf);
+        return ENOMEM;
     }
-    // as activate???
 
-    // NOTE copy file stuff
-    ci = 0;
-    for (pi = 0; pi < OPEN_MAX; pi++) {
+    for (int ci = 0, pi = 0; pi < OPEN_MAX; pi++) {
         if (curproc_fdt_entry(pi) != NULL) {
             cproc->p_fdt->fdt_entry[ci++] = curproc_fdt_entry(pi);
             curproc_fdt_entry(pi)->ref_cnt++;
         }
     }
 
+    cproc->p_fdt->count = curproc_fdt->count;
+
+    /* copy address space of parent and asign to child */
+    result = as_copy(curproc->p_addrspace, &cproc->p_addrspace);
+    if (result) {
+        proc_destroy(cproc);
+        kfree(ctf);
+        return result;
+    }
+
+    /* create a copy of parents thread inside child and enter child process */
     result = thread_fork(curthread->t_name, cproc, enter_forked_process, ctf, 0);
     if (result) {
         kfree(ctf);
         return ENOMEM;
     }
 
+    /* return child pid because we are parent */
     *retval = cproc->p_pid;
 
     return 0;
 }
+
 
 
 /*
@@ -544,7 +547,6 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
 	getpid does not fail.
 */
 int sys_getpid(pid_t *retval){
-    //getpid does not fail.
     if(curproc!=NULL){
         *retval = curproc->p_pid;
     }

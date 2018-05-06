@@ -12,6 +12,7 @@
 #define PRINT_SUCCESS printf("passed\n");
 #define MAX_BUF 500
 char teststr[] = "The quick brown fox jumped over the lazy dog.";
+char teststr2[] = "This is a test string!";
 char buf[MAX_BUF];
 
 
@@ -23,11 +24,49 @@ void test_fork(void);
 
 void test_fork(void) {
 	printf("About to fork..\n");
+
+	int fd, r,errno=0;
+
+	printf("**********\n* opening new file \"forktest.file\"\n");
+    fd = open("forktest.file", O_RDWR | O_CREAT );
+    printf("* open() got fd %d\n", fd);
+    if (fd < 0) {
+           printf("ERROR opening file: %s\n", strerror(errno));
+           exit(1);
+    }
+
 	pid_t pid = fork();
 	if (pid == 0) {
 		printf("Hello from child\n");
+
+		printf("* writing test string\n");
+	    r = write(fd, teststr, strlen(teststr));
+	    printf("* wrote %d bytes\n", r);
+	    if (r < 0) {
+	           printf("ERROR writing file: %s\n", strerror(errno));
+	           exit(1);
+	    }
+
+	    printf("* writing test string again\n");
+	    r = write(fd, teststr, strlen(teststr));
+	    printf("* wrote %d bytes\n", r);
+	    if (r < 0) {
+	           printf("ERROR writing file: %s\n", strerror(errno));
+	           exit(1);
+	    }
+	    printf("* closing file\n");
+	    close(fd);
+
 	} else {
 		printf("Hello from parent\n");
+		printf("* writing test string from parent\n");
+	    r = write(fd, teststr2, strlen(teststr2));
+	    printf("* wrote %d bytes\n", r);
+	    if (r < 0) {
+	           printf("ERROR writing file: %s\n", strerror(errno));
+	           exit(1);
+	    }
+		close(fd);
 	}
 	printf("test_fork passed\n");
 }
@@ -56,6 +95,9 @@ int test_iohandles(void){
 int test_openclose(void){
     printf(" Testing Open Syscall\t\t\t\t");
 
+
+	int pid = getpid();
+
     //start at fd 3 as 0,1,2 already assigned
     //test opening to max + 1 files (to check last one fails)
     int fd;
@@ -70,7 +112,7 @@ int test_openclose(void){
         }else{
             //check we get correct failure message!
             if(errno != EMFILE){
-                printf("Invalid Error Code when overflowing FD table on test: %d with Error: %d\n", i, errno);
+                printf("Invalid Error Code when overflowing FD table on test: %d with Error: %d and PID: %d\n", i, errno,pid);
                 exit(1);
             }
         }
@@ -278,7 +320,8 @@ main(int argc, char * argv[])
     PRINT_LINE
     PRINT_LINE
 
-    test_fork();
+
+	test_fork();
 
     return 0;
 }

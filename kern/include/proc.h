@@ -43,6 +43,8 @@ struct addrspace;
 struct thread;
 struct vnode;
 
+extern int proc_cnt;
+
 /*
  * Process structure.
  *

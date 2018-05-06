@@ -50,6 +50,7 @@
 #include <vnode.h>
 #include <synch.h>
 #include <limits.h>
+#include <vfs.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -118,13 +119,18 @@ static struct fdt *proc_acquirefdt(void){
 		kfree(fdt);
 		return NULL;
 	}
-	fdt->count = 0;
-	fdt->fdt_mutex = NULL;
+
 	fdt->fdt_mutex = lock_create("fdt_mutex");
 	if(fdt->fdt_mutex == NULL){
 		kfree(fdt);
 		return NULL;
 	}
+
+	for(int i = 0; i<OPEN_MAX; i++){
+		fdt->fdt_entry[i] = NULL;
+	}
+
+	fdt->count = 0;
 	return fdt;
 }
 
@@ -238,13 +244,26 @@ proc_destroy(struct proc *proc)
 	/* FDT fields */
 	if (proc->p_fdt) {
 		for(int i = 0; i<OPEN_MAX; i++){
-			if(proc->p_fdt->fdt_entry[i]!=NULL){
-				kfree(proc->p_fdt->fdt_entry[i]);
-				proc->p_fdt->fdt_entry[i] = NULL;
-				proc->p_fdt->count--;
+			struct oft_entry *oft_entry = proc->p_fdt->fdt_entry[i];
+			if(oft_entry!=NULL){
+				/* check no other process is sharing access before destroying */
+					if(oft_entry->ref_cnt <= 1){
+						vfs_close(oft_entry->vn);
+						kfree(oft_entry);
+					}else{
+						lock_acquire(oft_entry->oft_mutex);
+						proc->p_fdt->count--;
+						lock_release(oft_entry->oft_mutex);
+					}
+					proc->p_fdt->fdt_entry[i] = NULL;
+					proc->p_fdt->count--;
 			}
 		}
-		lock_destroy(proc->p_fdt->fdt_mutex);
+
+		if(proc->p_fdt->fdt_mutex!=NULL){
+			lock_destroy(proc->p_fdt->fdt_mutex);
+		}
+
 		kfree(proc->p_fdt);
 		proc->p_fdt = NULL;
 	}

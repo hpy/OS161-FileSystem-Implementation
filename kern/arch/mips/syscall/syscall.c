@@ -176,13 +176,12 @@ syscall(struct trapframe *tf)
 	KASSERT(curthread->t_iplhigh_count == 0);
 }
 
+
 /*
  * Enter user mode for a newly forked process.
- *
- * This function is provided as a reminder. You need to write
- * both it and the code that calls it.
- *
- * Thus, you can trash it and do things another way if you prefer.
+ * Copies the trapframe from the heap to the stack
+ * Advance the exeption program counter one instruction
+ * Set return values and enter child process usermode
  */
 void
 enter_forked_process(void *ctf_onheap, unsigned long unused)
@@ -191,9 +190,10 @@ enter_forked_process(void *ctf_onheap, unsigned long unused)
 
 	struct trapframe ctf_onstack = *(struct trapframe *)ctf_onheap;
 	ctf_onstack.tf_v0 = 0;
-	ctf_onstack.tf_v0 = 0;
+	ctf_onstack.tf_a3 = 0;
 	ctf_onstack.tf_epc += 4;
 
-	mips_usermode(&ctf_onstack);
+	kfree(ctf_onheap);
 
+	mips_usermode(&ctf_onstack);
 }
