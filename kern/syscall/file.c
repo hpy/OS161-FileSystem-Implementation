@@ -493,13 +493,15 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
 		return ENPROC;
 	}
 
-    /* copy current trapframe - freed by child process*/
+    /* Lock the current process to copy its trapframe*/
+    spinlock_acquire(&curproc->p_lock);
     struct trapframe *ctf = kmalloc(sizeof(*ctf));
     if (ctf == NULL) {
+        spinlock_release(&curproc->p_lock);
         return ENOMEM;
     }
-
     memcpy(ctf,tf,sizeof(struct trapframe));
+	spinlock_release(&curproc->p_lock);
 
     /* create child process */
     cproc = proc_create_runprogram(curproc->p_name);
@@ -539,6 +541,8 @@ int sys_fork(pid_t *retval, struct trapframe *tf){
         kfree(ctf);
         return ENOMEM;
     }
+
+    /*No need to free child trapframe as it was freed by the child proces*/
 
     /* return child pid because we are parent */
     *retval = cproc->p_pid;

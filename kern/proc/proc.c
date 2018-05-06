@@ -355,16 +355,13 @@ proc_create_runprogram(const char *name)
 {
 	struct proc *newproc;
 
+	/* Create new process */
 	newproc = proc_create(name);
 	if (newproc == NULL) {
 		return NULL;
 	}
 
-	/* VM fields */
-
 	newproc->p_addrspace = NULL;
-
-	/* VFS fields */
 
 	/*
 	 * Lock the current process to copy its current directory.
