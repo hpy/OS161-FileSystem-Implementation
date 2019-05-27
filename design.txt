@@ -1,8 +1,7 @@
-####OS ASST2 - PLANNING AND DESIGN DOCUMENT####
+# OS ASST2 - PLANNING AND DESIGN DOCUMENT #
 
 
 ## Required Data Structures ##
-
 
 ## File Descriptor Table (fdt) ##
 
