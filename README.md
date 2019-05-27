@@ -179,9 +179,6 @@ will also set retval to be v0 (make it a nop and prevent overwriting
 the return value crafted above).
 
 
-
-####OS ASST2 EXTENDED TASK - PLANNING AND DESIGN DOCUMENT####
-
 # sys_getpid #
 
 - The actual implementation of the sys_getpid function is trivial as it
