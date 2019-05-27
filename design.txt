@@ -1,3 +1,185 @@
+####OS ASST2 - PLANNING AND DESIGN DOCUMENT####
+
+
+## Required Data Structures ##
+
+
+## File Descriptor Table (fdt) ##
+
+- Each process has a pointer to a unique file descriptor table
+structure that keeps a count of used fd entries, and an array of
+pointers to OFT entries (struct fdt *p_fdt).
+
+- We use an array of pointers to OFT entries as fd’s range from  0 to
+OPEN_MAX (32). The fd can then be used as a direct index and the
+array won't be too large.
+
+- We keep a count of how many slots in the fdt have already been
+allocated.
+
+- Each fdt has its own mutex to prevent threaded concurrency issues
+(i.e. one slot left in fdt, thread A passes check that there is room
+in table, thread B then runs and passes same check, now two threads
+want to acquire a slot in the table and there is only one).
+
+struct fdt {
+    int count;
+    struct lock *fdt_mutex;
+    struct oft_entry *fdt_entry[OPEN_MAX];
+};
+
+
+
+## Open File Table (oft) ##
+
+
+- A structure that keeps track of files opened by user-level processes.
+
+- As oft entries are pointed to by an index (fd) in an fdt and not
+directly indexed themselves, they do not necessarily have to be part
+of a table (especially not in an array due to the many thousands that
+are open at any given time).
+
+- Standalone structs are therefore ideal  as they can be easily
+malloc’d, moved and destroyed without affecting an overall table
+structure.
+
+- There is a need to maintain a pointer to the underlying vnode that
+represents the file, as well as some metadata (flags/permissions,
+seek position, and a reference count).
+
+- The oft entry also needs a mutex to ensure atomic io operations to
+the file represented by it (as multiple fd’s can reference the same
+oft entry and multiple oft entries can reference the same vnode).
+
+struct oft_entry {
+    struct lock *oft_mutex;
+    struct vnode *vn;
+    mode_t mode;        // kept for portability
+    int flags;
+    off_t seek_pos;
+    int ref_cnt;
+};
+
+
+
+## Syscall Function Planning ##
+
+
+# sys_open #
+
+-Check dependencies/prerequisites and passed arguments are valid
+(check filename not null or too long, the current processes fdt
+exists and the current amount of fd’s currently in use isn’t at
+limit. Return required error codes where needed).
+
+- Also need to duplicate filename as vfs_open destroys passed in
+strings. Furthermore, need to use copyinstr() if filename is a
+user-level pointer because it could overflow userspace. Note that
+each process preallocates fd 0, 1 and 2 to stdin,stdout and stderr
+inside runprogram.c which is why some file names can come from kernel
+space.
+
+- Retrieve the vnode specified by path/filename with vfs_open then
+create an oft entry containing the metadata, acquire the next
+available fd and link it to the oft entry.
+
+- Garbage collect (free, null-out etc.)
+
+
+
+# sys _close #
+
+- Dependency/argument checks (valid fd, fdt table exists, oft entry
+exists).
+
+- Acquire mutex locks on the current process fdt and oft entries whilst
+modifying them to maintain atomicity between syscalls.
+
+- If the oft entry is being pointed to by multiple fd entries, then do
+not destroy/cleanup the oft entry, simply decrement its reference
+count, and NULL out the the requested fd link.
+
+- If the fd entry is the sole reference to the oft entry, then close
+the vnode and cleanup/destroy the entry.
+
+
+
+# sys_read / sys_write #
+
+- Read and Write are essentially the same operation, just opposites in
+terms of data flowing from a file to a buffer (read) or from a buffer
+to a file (write). Therefore we’ll abstract them out as wrappers that
+call the same underlying function with a write or read flag
+(sys_io(common perms…, readwriteflag)).
+
+- Dependency/argument checks (valid fd, fdt table exists, oft entry
+exists, buffer is valid).
+
+- Acquire a lock on the oft entry to prevent multi-threaded concurrency
+issues between multiple syscalls (read, write, close, lseek) as they
+can share the same oft entry (more specifically an offset into the
+file).
+
+- Check the request flag(s) in the oft entry and only proceed if
+matching read/write operations - ie O_RDONLY etc.
+
+- Initialise a uio_struct and pass it into VOP_WRITE or VOP_READ
+depending on the readwriteflag. These macros end up calling a series
+of functions that call copyin() for write or copyout() for read if
+the segment of memory is in user space, thus handling the check on
+buffer. They also perform the underlying transfer of data.
+
+- Update the seek pos in the oft entry to match that of the vnode after
+the io operation and return the number of bytes successfully
+read/written.
+
+
+
+# sys_dup2 #
+
+- Dependency/argument checks (valid fd, fdt table exists, oft entry
+exists).
+
+- Acquire mutex locks on the current process fdt and oft entries whilst
+modifying them to maintain atomicity between syscalls.
+
+- As the resultant fd’s point to the same oft entry, any updates by one
+fd (such as lseek), will be seen by the other fd. Note that if the
+new fd already has its own oft entry, it will first be closed before
+pointing to the old fd oft entry.
+
+
+
+# sys_lseek #
+
+- Set up local variables needed (64 bit local variable for 64 bit
+offset, fstat struct for getting metadata to determine file size with
+VOP_STAT()).
+
+- Dependency and argument checks (fd is valid, fdt is valid)
+
+- As the pos argument is a 64 bit value, and is the second argument, it
+passed in as two 32 bit values in the a2,a3 registers, so join them
+together using join32to64() and store in local 64 bit variable).
+
+- Will have to use copyin() to obtain whence from the stack (registers
+only accommodate 4 variables and 64 bit pos took up 2).
+
+- Check current seek + pos is valid and if so calculate the new
+position by adding to an offset specified in the file by a flag (i.e.
+SEEK_END).
+
+- As we are returning a 64 bit value we will have to split it with
+split64to32() into the return registers v0 and v1, which means we
+will also have to pass in the trap frame as an argument
+
+- As the syscall handler (syscall.c) automatically sets v0 t0 retval we
+will also set retval to be v0 (make it a nop and prevent overwriting
+the return value crafted above).
+
+
+
 ####OS ASST2 EXTENDED TASK - PLANNING AND DESIGN DOCUMENT####
 
 # sys_getpid #
